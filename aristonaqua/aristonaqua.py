@@ -9,9 +9,6 @@ import time
 from typing import Union
 import requests
 
-_LOGGER = logging.getLogger(__name__)
-
-
 class AquaAristonHandler:
     """
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -61,6 +58,8 @@ class AquaAristonHandler:
     """
 
     _VERSION = "1.0.13"
+
+    _LOGGER = logging.getLogger(__name__)
 
     _VALUE = "value"
     _UNITS = "units"
@@ -547,10 +546,10 @@ class AquaAristonHandler:
                     json=login_data,
                     verify=True)
             except requests.exceptions.RequestException:
-                _LOGGER.warning('%s Authentication login error', self)
+                self._LOGGER.warning('%s Authentication login error', self)
                 raise Exception("Login request exception")
             if resp.status_code != 200:
-                _LOGGER.warning('%s Unexpected reply during login: %s', self, resp.status_code)
+                self._LOGGER.warning('%s Unexpected reply during login: %s', self, resp.status_code)
                 raise Exception("Login unexpected reply code")
             if resp.url.startswith(self._url + "/PlantDashboard/Index/") or resp.url.startswith(
                     self._url + "/PlantManagement/Index/") or resp.url.startswith(
@@ -561,21 +560,21 @@ class AquaAristonHandler:
                 with self._plant_id_lock:
                     self._plant_id = resp.url.split("/")[5]
                     self._login = True
-                    _LOGGER.info('%s Plant ID is %s', self, self._plant_id)
+                    self._LOGGER.info('%s Plant ID is %s', self, self._plant_id)
             elif resp.url.startswith(self._url + "/PlantData/Index/") or resp.url.startswith(
                     self._url + "/UserData/Index/"):
                 with self._plant_id_lock:
                     plant_id_attribute = resp.url.split("/")[5]
                     self._plant_id = plant_id_attribute.split("?")[0]
                     self._login = True
-                    _LOGGER.info('%s Plant ID is %s', self, self._plant_id)
+                    self._LOGGER.info('%s Plant ID is %s', self, self._plant_id)
             elif resp.url.startswith(self._url + "/Menu/User/Index/"):
                 with self._plant_id_lock:
                     self._plant_id = resp.url.split("/")[6]
                     self._login = True
-                    _LOGGER.info('%s Plant ID is %s', self, self._plant_id)
+                    self._LOGGER.info('%s Plant ID is %s', self, self._plant_id)
             else:
-                _LOGGER.warning('%s Authentication login error', self)
+                self._LOGGER.warning('%s Authentication login error', self)
                 raise Exception("Login parsing of URL failed")
         return
 
@@ -833,17 +832,17 @@ class AquaAristonHandler:
     def _store_data(self, resp, request_type=""):
         """Store received dictionary"""
         if resp.status_code != 200:
-            _LOGGER.warning('%s %s invalid reply code %s', self, request_type, resp.status_code)
+            self._LOGGER.warning('%s %s invalid reply code %s', self, request_type, resp.status_code)
             raise Exception("Unexpected code {} received for the request {}".format(resp.status_code, request_type))
         if not self._json_validator(resp.json()):
-            _LOGGER.warning('%s %s No json detected', self, request_type)
+            self._LOGGER.warning('%s %s No json detected', self, request_type)
             raise Exception("JSON did not pass validation for the request {}".format(request_type))
         if request_type == self._REQUEST_GET_MAIN:
             try:
                 self._ariston_main_data = copy.deepcopy(resp.json())
             except copy.error:
                 self._ariston_main_data = {}
-                _LOGGER.warning("%s Invalid data received for Main, not JSON", self)
+                self._LOGGER.warning("%s Invalid data received for Main, not JSON", self)
                 raise Exception("Corruption at reading data of the request {}".format(request_type))
 
             self._set_sensors(request_type)
@@ -855,7 +854,7 @@ class AquaAristonHandler:
                 self._ariston_error_data = copy.deepcopy(resp.json())
             except copy.error:
                 self._ariston_error_data = []
-                _LOGGER.warning("%s Invalid data received for Errors, not JSON", self)
+                self._LOGGER.warning("%s Invalid data received for Errors, not JSON", self)
                 raise Exception("Corruption at reading data of the request {}".format(request_type))
 
             self._set_sensors(request_type)
@@ -867,7 +866,7 @@ class AquaAristonHandler:
                 self._ariston_cleanse_data = copy.deepcopy(resp.json())
             except copy.error:
                 self._ariston_cleanse_data = {}
-                _LOGGER.warning("%s Invalid data received for cleanse, not JSON", self)
+                self._LOGGER.warning("%s Invalid data received for cleanse, not JSON", self)
                 raise Exception("Corruption at reading data of the request {}".format(request_type))
 
             self._set_sensors(request_type)
@@ -879,7 +878,7 @@ class AquaAristonHandler:
                 self._ariston_time_prog_data = copy.deepcopy(resp.json())
             except copy.error:
                 self._ariston_time_prog_data = {}
-                _LOGGER.warning("%s Invalid data received for schedule, not JSON", self)
+                self._LOGGER.warning("%s Invalid data received for schedule, not JSON", self)
                 raise Exception("Corruption at reading data of the request {}".format(request_type))
 
             self._set_sensors(request_type)
@@ -891,7 +890,7 @@ class AquaAristonHandler:
                 self._ariston_use_data = copy.deepcopy(resp.json())
             except copy.error:
                 self._ariston_use_data = {}
-                _LOGGER.warning("%s Invalid data received for use, not JSON", self)
+                self._LOGGER.warning("%s Invalid data received for use, not JSON", self)
                 raise Exception("Corruption at reading data of the request {}".format(request_type))
 
             self._set_sensors(request_type)
@@ -902,7 +901,7 @@ class AquaAristonHandler:
                 self._version = resp.json()["info"]["version"]
             except KeyError:
                 self._version = ""
-                _LOGGER.warning("%s Invalid version fetched", self)
+                self._LOGGER.warning("%s Invalid version fetched", self)
 
             self._set_sensors(request_type)
             self._set_visible_data()
@@ -978,15 +977,15 @@ class AquaAristonHandler:
                             timeout=http_timeout,
                             verify=True)
                     except requests.exceptions.RequestException:
-                        _LOGGER.warning("%s %s Problem reading data", self, request_type)
+                        self._LOGGER.warning("%s %s Problem reading data", self, request_type)
                         raise Exception("Request {} has failed with an exception".format(request_type))
                     self._store_data(resp, request_type)
             else:
-                _LOGGER.debug("%s %s Still setting data, read restricted", self, request_type)
+                self._LOGGER.debug("%s %s Still setting data, read restricted", self, request_type)
         else:
-            _LOGGER.warning("%s %s Not properly logged in to get the data", self, request_type)
+            self._LOGGER.warning("%s %s Not properly logged in to get the data", self, request_type)
             raise Exception("Not logged in to fetch the data")
-        _LOGGER.info('Data fetched')
+        self._LOGGER.info('Data fetched')
         return True
 
     def _queue_get_data(self):
@@ -998,12 +997,12 @@ class AquaAristonHandler:
                 retry_in = self._timer_between_param_delay * self._HTTP_DELAY_MULTIPLY
                 self._timer_between_set = self._timer_between_param_delay * self._HTTP_DELAY_MULTIPLY + \
                                           self._HTTP_TIMER_SET_WAIT
-                _LOGGER.warning('%s Retrying in %s seconds', self, retry_in)
+                self._LOGGER.warning('%s Retrying in %s seconds', self, retry_in)
             else:
                 # work as usual
                 retry_in = self._timer_between_param_delay
                 self._timer_between_set = self._timer_between_param_delay + self._HTTP_TIMER_SET_WAIT
-                _LOGGER.debug('%s Fetching data in %s seconds', self, retry_in)
+                self._LOGGER.debug('%s Fetching data in %s seconds', self, retry_in)
             self._timer_periodic_read.cancel()
             if self._started:
                 self._timer_periodic_read = threading.Timer(retry_in, self._queue_get_data)
@@ -1084,24 +1083,24 @@ class AquaAristonHandler:
             with self._lock:
                 was_online = self.available
                 self._errors += 1
-                _LOGGER.warning("Connection errors: %i", self._errors)
+                self._LOGGER.warning("Connection errors: %i", self._errors)
                 offline = not self.available
             if offline and was_online:
                 with self._plant_id_lock:
                     self._login = False
-                _LOGGER.error("Ariston is offline: Too many errors")
+                self._LOGGER.error("Ariston is offline: Too many errors")
             raise Exception("Getting HTTP data has failed")
-        _LOGGER.info("Data fetched successfully, available %s", self.available)
+        self._LOGGER.info("Data fetched successfully, available %s", self.available)
         with self._lock:
             was_offline = not self.available
             self._errors = 0
         if was_offline:
-            _LOGGER.info("Ariston back online")
+            self._LOGGER.info("Ariston back online")
         return
 
     def _setting_http_data(self, set_data, request_type=""):
         """setting of data"""
-        _LOGGER.info('setting http data')
+        self._LOGGER.info('setting http data')
         try:
             if self._store_file:
                 store_file = 'data_ariston' + request_type + '.json'
@@ -1118,7 +1117,7 @@ class AquaAristonHandler:
                     json.dump([self._set_time_start, self._set_time_end, self._get_time_start, self._get_time_end],
                               ariston_fetched)
         except TypeError:
-            _LOGGER.warning('%s Problem storing files', self)
+            self._LOGGER.warning('%s Problem storing files', self)
         if request_type == self._REQUEST_SET_CLEANSE:
             url = self._url + '/api/v2/velis/medPlantData/' + self._plant_id + \
                   '/plantSettings?appId=com.remotethermo.velis'
@@ -1149,13 +1148,13 @@ class AquaAristonHandler:
                 json=set_data,
                 verify=True)
         except requests.exceptions.RequestException:
-            _LOGGER.warning('%s %s error', self, request_type)
+            self._LOGGER.warning('%s %s error', self, request_type)
             raise Exception("Unexpected error for setting in the request {}".format(request_type))
         if resp.status_code != 200:
-            _LOGGER.warning("%s %s Command to set data failed with code: %s", self, request_type, resp.status_code)
+            self._LOGGER.warning("%s %s Command to set data failed with code: %s", self, request_type, resp.status_code)
             raise Exception("Unexpected code {} for setting in the request {}".format(resp.status_code, request_type))
         self._set_time_end[request_type] = time.time()
-        _LOGGER.info('%s %s Data was presumably changed', self, request_type)
+        self._LOGGER.info('%s %s Data was presumably changed', self, request_type)
 
     def _preparing_setting_http_data(self):
         """Preparing and setting http data"""
@@ -1200,7 +1199,7 @@ class AquaAristonHandler:
                         self._ariston_cleanse_data["MedMaxSetpointTemperature"]
                 except KeyError:
                     set_cleanse_data = {}
-                    _LOGGER.error('%s antilegionella read issue during set', self)
+                    self._LOGGER.error('%s antilegionella read issue during set', self)
 
                 if self._PARAM_MODE in self._set_param:
 
@@ -1332,7 +1331,7 @@ class AquaAristonHandler:
                                 changed_parameter[self._set_request_for_parameter(parameter)]:
                             del self._set_param[parameter]
                 except KeyError:
-                    _LOGGER.warning('%s Can not clear set parameters', self)
+                    self._LOGGER.warning('%s Can not clear set parameters', self)
 
                 # show data as changed in case we were able to read data in between requests
                 self._set_visible_data()
@@ -1342,48 +1341,48 @@ class AquaAristonHandler:
                     try:
                         self._setting_http_data(set_mode_data, self._REQUEST_SET_MODE)
                     except TypeError:
-                        _LOGGER.warning('%s Setting mode failed', self)
+                        self._LOGGER.warning('%s Setting mode failed', self)
                     except requests.exceptions.RequestException:
-                        _LOGGER.warning('%s Setting mode failed', self)
+                        self._LOGGER.warning('%s Setting mode failed', self)
 
                 elif changed_parameter[self._REQUEST_SET_ON] != {}:
 
                     try:
                         self._setting_http_data(set_power_on, self._REQUEST_SET_ON)
                     except TypeError:
-                        _LOGGER.warning('%s Setting power failed', self)
+                        self._LOGGER.warning('%s Setting power failed', self)
                     except requests.exceptions.RequestException:
-                        _LOGGER.warning('%s Setting power failed', self)
+                        self._LOGGER.warning('%s Setting power failed', self)
 
                 elif changed_parameter[self._REQUEST_SET_TEMPERATURE] != {}:
 
                     try:
                         self._setting_http_data(set_temperature_data, self._REQUEST_SET_TEMPERATURE)
                     except TypeError:
-                        _LOGGER.warning('%s Setting temperature failed', self)
+                        self._LOGGER.warning('%s Setting temperature failed', self)
                     except requests.exceptions.RequestException:
-                        _LOGGER.warning('%s Setting temperature failed', self)
+                        self._LOGGER.warning('%s Setting temperature failed', self)
 
                 elif changed_parameter[self._REQUEST_SET_CLEANSE] != {}:
 
                     try:
                         self._setting_http_data(set_cleanse_data, self._REQUEST_SET_CLEANSE)
                     except TypeError:
-                        _LOGGER.warning('%s Setting antilegionella failed', self)
+                        self._LOGGER.warning('%s Setting antilegionella failed', self)
                     except requests.exceptions.RequestException:
-                        _LOGGER.warning('%s Setting antilegionella failed', self)
+                        self._LOGGER.warning('%s Setting antilegionella failed', self)
 
                 elif changed_parameter[self._REQUEST_SET_ECO] != {}:
 
                     try:
                         self._setting_http_data(set_eco_on, self._REQUEST_SET_ECO)
                     except TypeError:
-                        _LOGGER.warning('%s Setting eco failed', self)
+                        self._LOGGER.warning('%s Setting eco failed', self)
                     except requests.exceptions.RequestException:
-                        _LOGGER.warning('%s Setting eco failed', self)
+                        self._LOGGER.warning('%s Setting eco failed', self)
 
                 else:
-                    _LOGGER.debug('%s Same data was used', self)
+                    self._LOGGER.debug('%s Same data was used', self)
 
                 for key, value in changed_parameter.items():
                     if value != {}:
@@ -1423,7 +1422,7 @@ class AquaAristonHandler:
                         for request_item in self._set_param_group:
                             self._set_param_group[request_item] = False
 
-                        _LOGGER.warning("%s No stable connection to set the data", self)
+                        self._LOGGER.warning("%s No stable connection to set the data", self)
                         raise Exception("Unstable connection to set the data")
 
     def set_http_data(self, **parameter_list: Union[str, int, float, bool]) -> None:
@@ -1481,27 +1480,27 @@ class AquaAristonHandler:
                 if self._PARAM_MODE in good_values:
                     try:
                         self._set_param[self._PARAM_MODE] = self._MODE_TO_VALUE[good_values[self._PARAM_MODE]]
-                        _LOGGER.info('%s New mode %s', self, good_values[self._PARAM_MODE])
+                        self._LOGGER.info('%s New mode %s', self, good_values[self._PARAM_MODE])
                     except KeyError:
-                        _LOGGER.warning('%s Unknown or unsupported mode or key error: %s', self,
+                        self._LOGGER.warning('%s Unknown or unsupported mode or key error: %s', self,
                                         good_values[self._PARAM_MODE])
                         bad_values[self._PARAM_MODE] = good_values[self._PARAM_MODE]
 
                 if self._PARAM_ON in good_values:
                     try:
                         self._set_param[self._PARAM_ON] = self._STRING_TO_VALUE[good_values[self._PARAM_ON]]
-                        _LOGGER.info('%s New mode %s', self, good_values[self._PARAM_ON])
+                        self._LOGGER.info('%s New mode %s', self, good_values[self._PARAM_ON])
                     except KeyError:
-                        _LOGGER.warning('%s Unknown or unsupported power or key error: %s', self,
+                        self._LOGGER.warning('%s Unknown or unsupported power or key error: %s', self,
                                         good_values[self._PARAM_ON])
                         bad_values[self._PARAM_ON] = good_values[self._PARAM_ON]
 
                 if self._PARAM_ECO in good_values:
                     try:
                         self._set_param[self._PARAM_ECO] = self._STRING_TO_VALUE[good_values[self._PARAM_ECO]]
-                        _LOGGER.info('%s New mode %s', self, good_values[self._PARAM_ECO])
+                        self._LOGGER.info('%s New mode %s', self, good_values[self._PARAM_ECO])
                     except KeyError:
-                        _LOGGER.warning('%s Unknown or unsupported eco or key error: %s', self,
+                        self._LOGGER.warning('%s Unknown or unsupported eco or key error: %s', self,
                                         good_values[self._PARAM_ECO])
                         bad_values[self._PARAM_ECO] = good_values[self._PARAM_ECO]
 
@@ -1509,9 +1508,9 @@ class AquaAristonHandler:
                     try:
                         self._set_param[self._PARAM_REQUIRED_TEMPERATURE] = \
                             good_values[self._PARAM_REQUIRED_TEMPERATURE]
-                        _LOGGER.info('%s New mode %s', self, good_values[self._PARAM_REQUIRED_TEMPERATURE])
+                        self._LOGGER.info('%s New mode %s', self, good_values[self._PARAM_REQUIRED_TEMPERATURE])
                     except KeyError:
-                        _LOGGER.warning('%s Unknown or unsupported set temperature or key error: %s', self,
+                        self._LOGGER.warning('%s Unknown or unsupported set temperature or key error: %s', self,
                                         good_values[self._PARAM_REQUIRED_TEMPERATURE])
                         bad_values[self._PARAM_REQUIRED_TEMPERATURE] = good_values[self._PARAM_REQUIRED_TEMPERATURE]
 
@@ -1519,9 +1518,9 @@ class AquaAristonHandler:
                     try:
                         self._set_param[self._PARAM_CLEANSE_TEMPERATURE] = \
                             good_values[self._PARAM_CLEANSE_TEMPERATURE]
-                        _LOGGER.info('%s New mode %s', self, good_values[self._PARAM_CLEANSE_TEMPERATURE])
+                        self._LOGGER.info('%s New mode %s', self, good_values[self._PARAM_CLEANSE_TEMPERATURE])
                     except KeyError:
-                        _LOGGER.warning('%s Unknown or unsupported antilegionella temperature or key error: %s', self,
+                        self._LOGGER.warning('%s Unknown or unsupported antilegionella temperature or key error: %s', self,
                                         good_values[self._PARAM_CLEANSE_TEMPERATURE])
                         bad_values[self._PARAM_CLEANSE_TEMPERATURE] = good_values[self._PARAM_CLEANSE_TEMPERATURE]
 
@@ -1539,7 +1538,7 @@ class AquaAristonHandler:
                     raise Exception("Following values could not be set: {}".format(bad_values))
 
         else:
-            _LOGGER.warning("%s No valid data fetched from server to set changes", self)
+            self._LOGGER.warning("%s No valid data fetched from server to set changes", self)
             raise Exception("Connection data error, problem to set data")
 
     def start(self) -> None:
@@ -1566,6 +1565,6 @@ class AquaAristonHandler:
                     json={},
                     verify=True)
             except requests.exceptions.RequestException:
-                _LOGGER.warning('%s Logout error', self)
+                self._LOGGER.warning('%s Logout error', self)
         self._session.close()
         self._login = False
