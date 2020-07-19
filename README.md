@@ -49,13 +49,13 @@ aquaariston:
 `aquaariston.aqua_set_data` - Sets the requested data.
 
 ### Service attributes
-  - `entity_id` - mandatory entity of Ariston water heater. For the rest of attributes please see Developer Tools tab Services within Home Assistant and select `aquaariston.aqua_set_data`. You may also directly read services.yaml within the `aristonaqua` folder.
+  - `entity_id` - mandatory entity of Ariston water heater. For the rest of attributes please see Developer Tools tab Services within Home Assistant and select `aquaariston.aqua_set_data`. You may also directly read services.yaml within the `aquaariston` folder.
   
 ### Service use example
 ```
 service: aquaariston.aqua_set_data
 data:
-    entity_id: 'water_heater.aristonaqua'
+    entity_id: 'water_heater.aqua_ariston'
     required_temperature: 55
     antilegionella_set_temperature: 75
 ```
