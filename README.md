@@ -18,7 +18,6 @@ ariston:
 aristonaqua:
     username: !secret ariston_username
     password: !secret ariston_password
-    store_config_files: true
     switches:
       - power
       - eco
