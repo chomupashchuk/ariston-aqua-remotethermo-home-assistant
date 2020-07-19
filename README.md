@@ -3,7 +3,7 @@ Thin integration is Aqua Ariston NET.
 You are free to modify and distribute it. It is distributed 'as is' with no liability for possible damage.
 
 ## Integration was tested and works with:
-  - Ariston Velis Wifi
+  - Ariston Lydos Wifi
 
 ## Installation
 In `/config` folder create `custom_components` folder and copy folder `aristonaqua` with its contents in it. In `configuration.yaml` include:
