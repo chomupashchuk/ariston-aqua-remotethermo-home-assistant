@@ -1,0 +1,8 @@
+{
+  "domain": "ariston",
+  "name": "Ariston",
+  "documentation": "https://pypi.org/project/aristonremotethermo/",
+  "requirements": [],
+  "dependencies": [],
+  "codeowners": ["@chomupashchuk"]
+}
