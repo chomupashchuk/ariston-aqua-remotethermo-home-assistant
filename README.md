@@ -1,4 +1,4 @@
-# Aqua Ariston NET remotethermo API
+# Aqua Ariston NET remotethermo integration
 Thin integration is Aqua Ariston NET.
 You are free to modify and distribute it. It is distributed 'as is' with no liability for possible damage.
 
