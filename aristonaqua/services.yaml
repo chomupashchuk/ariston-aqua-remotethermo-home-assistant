@@ -1,4 +1,4 @@
-set_data:
+aqua_set_data:
   description: Set Ariston Aqua Data via HTTP
   fields:
     entity_id:

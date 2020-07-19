@@ -39,8 +39,8 @@ CONF_STORE_CONFIG_FILES = "store_config_files"
 VALUE = "value"
 UNITS = "units"
 
-DOMAIN = "aristonaqua"
+DOMAIN = "aquaariston"
 DATA_ARISTONAQUA = DOMAIN
-DEVICES = "devices"
-SERVICE_SET_DATA = "set_data_aqua"
-WATER_HEATERS = "water_heaters"
+DEVICES = "aqua_devices"
+SERVICE_SET_DATA = "aqua_set_data"
+WATER_HEATERS = "aqua_water_heaters"

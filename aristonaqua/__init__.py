@@ -41,7 +41,7 @@ from .const import (
 from .sensor import SENSORS
 from .switch import SWITCHES
 
-DEFAULT_NAME = "AristonAqua"
+DEFAULT_NAME = "Aqua Ariston"
 DEFAULT_MAX_RETRIES = 5
 
 _LOGGER = logging.getLogger(__name__)
@@ -115,6 +115,8 @@ class AristonAquaChecker:
 
 def setup(hass, config):
     """Set up the Ariston Aqua component."""
+    if DOMAIN not in config:
+        return True
     hass.data.setdefault(DATA_ARISTONAQUA, {DEVICES: {}, WATER_HEATERS: []})
     api_list = []
     for device in config[DOMAIN]:

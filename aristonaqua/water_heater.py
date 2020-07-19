@@ -17,6 +17,7 @@ from homeassistant.const import (
 from .const import (
     DATA_ARISTONAQUA,
     DEVICES,
+    DOMAIN,
     VALUE,
     PARAM_ON,
     PARAM_REQUIRED_TEMPERATURE,
@@ -75,7 +76,7 @@ class AristonAquaWaterHeater(WaterHeaterEntity):
     @property
     def unique_id(self) -> str:
         """Return the unique ID for this thermostat."""
-        return "_".join([self._name, "water_heater"])
+        return "_".join([self._name, "water_heater", DOMAIN])
 
     @property
     def should_poll(self):
