@@ -1,0 +1,21 @@
+set_data:
+  description: Set Ariston Aqua Data via HTTP
+  fields:
+    entity_id:
+      description: "(Mandatory) Water Heater 'enity_id' for Ariston heater"
+      example: climate.ariston
+    mode:
+      description: "(Optional) Mode: 'manual' or 'program'."
+      example: manual
+    required_temperature:
+      description: "(Optional) Set required temperature in steps of '1'."
+      example: 45
+    antilegionella_set_temperature:
+      description: "(Optional) Set required temperature during antilegionella cycle in steps of '1'."
+      example: 70
+    power:
+      description: "(Optional) Power ON."
+      example: true
+    eco:
+      description: "(Optional) Eco mode."
+      example: true
