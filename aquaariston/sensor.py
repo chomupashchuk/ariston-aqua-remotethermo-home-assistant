@@ -59,7 +59,7 @@ SENSORS = {
     PARAM_REQUIRED_TEMPERATURE: [SENSOR_REQUIRED_TEMPERATURE, "mdi:thermometer"],
     PARAM_MODE: [SENSOR_MODE, "mdi:cursor-pointer"],
     PARAM_SHOWERS: [SENSOR_SHOWERS, "mdi:shower-head"],
-    PARAM_TIMER: [SENSOR_TIMER, "mdi:timer-outline"],
+    PARAM_TIMER: [SENSOR_TIMER, "mdi:timer"],
     PARAM_CLEANSE_TEMPERATURE: [SENSOR_CLEANSE_TEMPERATURE, "mdi:thermometer"],
     PARAM_TIME_PROGRAM: [SENSOR_TIME_PROGRAM, "mdi:calendar-month"],
     PARAM_ENERGY_USE_DAY: [SENSOR_ENERGY_USE_DAY, "mdi:cash"],

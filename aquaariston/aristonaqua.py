@@ -57,7 +57,7 @@ class AquaAristonHandler:
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     """
 
-    _VERSION = "1.0.13"
+    _VERSION = "1.0.15"
 
     _LOGGER = logging.getLogger(__name__)
 
@@ -184,7 +184,7 @@ class AquaAristonHandler:
     _REQUEST_GET_VERSION = "_get_version"
     _REQUEST_GET_USE = "_get_use"
 
-    _REQUEST_SET_MODE = "_set_main"
+    _REQUEST_SET_MAIN = "_set_main"
     _REQUEST_SET_ON = "_set_on"
     _REQUEST_SET_TEMPERATURE = "_set_temperature"
     _REQUEST_SET_ECO = "_set_eco"
@@ -236,7 +236,7 @@ class AquaAristonHandler:
         elif data in self._SET_REQUEST_CLEANSE:
             return self._REQUEST_SET_CLEANSE
         else:
-            return self._REQUEST_SET_MODE
+            return self._REQUEST_SET_MAIN
 
     def __init__(self,
                  username: str,
@@ -344,7 +344,7 @@ class AquaAristonHandler:
             self._REQUEST_GET_CLEANSE: False,
         }
         self._set_retry = {
-            self._REQUEST_SET_MODE: 0,
+            self._REQUEST_SET_MAIN: 0,
             self._REQUEST_SET_ON: 0,
             self._REQUEST_SET_TEMPERATURE: 0,
             self._REQUEST_SET_ECO: 0,
@@ -354,14 +354,14 @@ class AquaAristonHandler:
         self._set_new_data_pending = False
         self._set_scheduled = False
         self._set_time_start = {
-            self._REQUEST_SET_MODE: 0.,
+            self._REQUEST_SET_MAIN: 0.,
             self._REQUEST_SET_ON: 0.,
             self._REQUEST_SET_TEMPERATURE: 0.,
             self._REQUEST_SET_ECO: 0.,
             self._REQUEST_SET_CLEANSE: 0.
         }
         self._set_time_end = {
-            self._REQUEST_SET_MODE: 0.,
+            self._REQUEST_SET_MAIN: 0.,
             self._REQUEST_SET_ON: 0.,
             self._REQUEST_SET_TEMPERATURE: 0.,
             self._REQUEST_SET_ECO: 0.,
@@ -514,7 +514,7 @@ class AquaAristonHandler:
                 sensors_dictionary[parameter] = {*self._MODE_TO_VALUE}
             elif parameter == self._PARAM_ON:
                 sensors_dictionary[parameter] = {*self._STRING_TO_VALUE}
-            elif parameter == self._PARAM_REQUIRED_TEMPERATURE:
+            elif parameter == self._PARAM_CLEANSE_TEMPERATURE:
                 param_values = dict()
                 if self._ariston_cleanse_data != {}:
                     param_values["min"] = self._ariston_cleanse_data["MedMaxSetpointTemperatureMin"]
@@ -523,7 +523,7 @@ class AquaAristonHandler:
                 sensors_dictionary[parameter] = param_values
             elif parameter == self._PARAM_ECO:
                 sensors_dictionary[parameter] = {*self._STRING_TO_VALUE}
-            elif parameter == self._PARAM_CLEANSE_TEMPERATURE:
+            elif parameter == self._PARAM_REQUIRED_TEMPERATURE:
                 param_values = dict()
                 param_values["min"] = 40.
                 param_values["max"] = 80.
@@ -1172,24 +1172,26 @@ class AquaAristonHandler:
                     # we wait for another attempt after timeout, data will be set then
                     return
             if self._login and self.available and self._plant_id != "" and self._ariston_main_data:
-
                 changed_parameter = {
-                    self._REQUEST_SET_MODE: {},
+                    self._REQUEST_SET_MAIN: {},
                     self._REQUEST_SET_ON: {},
                     self._REQUEST_SET_TEMPERATURE: {},
                     self._REQUEST_SET_ECO: {},
                     self._REQUEST_SET_CLEANSE: {}
                 }
+                
+                set_eco_on = False
+                set_power_on = False
 
                 set_mode_data = dict()
-                set_mode_data["old"] = self._MODE_TO_VALUE[self._ariston_main_data["mode"]]
-                set_mode_data["new"] = self._MODE_TO_VALUE[self._ariston_main_data["mode"]]
+                set_mode_data["old"] = self._ariston_main_data["mode"]
+                set_mode_data["new"] = self._ariston_main_data["mode"]
 
                 set_temperature_data = dict()
                 set_temperature_data["eco"] = self._ariston_main_data["eco"]
                 set_temperature_data["old"] = self._ariston_main_data["reqTemp"]
                 set_temperature_data["new"] = self._ariston_main_data["reqTemp"]
-
+                
                 set_cleanse_data = dict()
                 try:
                     set_cleanse_data["MedMaxSetpointTemperature"] = dict()
@@ -1253,10 +1255,10 @@ class AquaAristonHandler:
                             self._get_request_for_parameter(self._PARAM_REQUIRED_TEMPERATURE)] = True
 
                 if self._PARAM_ECO in self._set_param:
-
+                
                     if self._set_param[self._PARAM_ECO]:
                         # On differs from Off
-                        if self._set_param[self._PARAM_ECO] is True:
+                        if self._ariston_main_data["eco"] is True:
                             if self._set_time_start[self._set_request_for_parameter(self._PARAM_ECO)] < \
                                     self._get_time_end[self._get_request_for_parameter(self._PARAM_ECO)]:
                                 # value should be up to date and match to remove from setting
@@ -1272,23 +1274,23 @@ class AquaAristonHandler:
 
                     else:
                         # Off is change of mode to the same value
-                        if self._set_param[self._PARAM_ECO] is False:
+                        if self._ariston_main_data["eco"] is False:
                             if self._set_time_start[self._set_request_for_parameter(self._PARAM_ECO)] < \
                                     self._get_time_end[self._get_request_for_parameter(self._PARAM_ECO)]:
                                 # value should be up to date and match to remove from setting
                                 del self._set_param[self._PARAM_ECO]
                             else:
                                 # assume data was not yet changed
-                                changed_parameter[self._REQUEST_SET_MODE][
+                                changed_parameter[self._REQUEST_SET_MAIN][
                                     self._get_request_for_parameter(self._PARAM_ECO)] = True
                         else:
-                            changed_parameter[self._REQUEST_SET_MODE][
+                            changed_parameter[self._REQUEST_SET_MAIN][
                                 self._get_request_for_parameter(self._PARAM_ECO)] = True
 
                 if self._PARAM_CLEANSE_TEMPERATURE in self._set_param:
 
-                    if math.isclose(
-                            self._ariston_main_data["reqTemp"],
+                    if self._ariston_cleanse_data and math.isclose(
+                            self._ariston_cleanse_data["MedMaxSetpointTemperature"],
                             self._set_param[self._PARAM_CLEANSE_TEMPERATURE],
                             abs_tol=0.01):
                         if self._set_time_start[self._set_request_for_parameter(self._PARAM_CLEANSE_TEMPERATURE)] < \
@@ -1324,10 +1326,13 @@ class AquaAristonHandler:
                         self._set_retry[key] += 1
                     else:
                         changed_parameter[key] = {}
-
+    
                 try:
                     for parameter, value in self._set_param.items():
-                        if self._get_request_for_parameter(parameter) not in \
+                        if parameter == self._PARAM_ECO and value is False:
+                            if self._REQUEST_GET_MAIN not in changed_parameter[self._REQUEST_SET_MAIN]:
+                                del self._set_param[parameter]
+                        elif self._get_request_for_parameter(parameter) not in \
                                 changed_parameter[self._set_request_for_parameter(parameter)]:
                             del self._set_param[parameter]
                 except KeyError:
@@ -1336,10 +1341,10 @@ class AquaAristonHandler:
                 # show data as changed in case we were able to read data in between requests
                 self._set_visible_data()
 
-                if changed_parameter[self._REQUEST_SET_MODE] != {}:
+                if changed_parameter[self._REQUEST_SET_MAIN] != {}:
 
                     try:
-                        self._setting_http_data(set_mode_data, self._REQUEST_SET_MODE)
+                        self._setting_http_data(set_mode_data, self._REQUEST_SET_MAIN)
                     except TypeError:
                         self._LOGGER.warning('%s Setting mode failed', self)
                     except requests.exceptions.RequestException:
@@ -1406,14 +1411,14 @@ class AquaAristonHandler:
             else:
                 # api is down
                 if not self._set_scheduled:
-                    if self._set_retry[self._REQUEST_SET_MODE] < self._set_max_retries:
+                    if self._set_retry[self._REQUEST_SET_MAIN] < self._set_max_retries:
                         # retry again after enough time to fetch data twice
                         retry_in = self._timer_between_set
                         self._timer_periodic_set.cancel()
                         if self._started:
                             self._timer_periodic_set = threading.Timer(retry_in, self._preparing_setting_http_data)
                             self._timer_periodic_set.start()
-                        self._set_retry[self._REQUEST_SET_MODE] += 1
+                        self._set_retry[self._REQUEST_SET_MAIN] += 1
                         self._set_scheduled = True
                     else:
                         # no more retries, no need to keep changed data
@@ -1524,7 +1529,6 @@ class AquaAristonHandler:
                                         good_values[self._PARAM_CLEANSE_TEMPERATURE])
                         bad_values[self._PARAM_CLEANSE_TEMPERATURE] = good_values[self._PARAM_CLEANSE_TEMPERATURE]
 
-                # show data as changed
                 self._set_visible_data()
 
                 self._set_new_data_pending = True
