@@ -26,6 +26,8 @@ class AquaAristonHandler:
         - 'mode' - mode (manual or program).
         - 'power' - power status.
         - 'showers' - average estimated number of showers.
+        - 'required_showers' - required amount of showers.
+        - 'max_required_showers' - maximum allowed required number of showers.
         - 'heating' - indicates ongoing heating.
         - 'antilegionella'- indicates antilegionella function status.
         - 'eco' - indicates eco function status.
@@ -57,7 +59,7 @@ class AquaAristonHandler:
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     """
 
-    _VERSION = "1.0.15"
+    _VERSION = "1.0.16"
 
     _LOGGER = logging.getLogger(__name__)
 
@@ -71,6 +73,8 @@ class AquaAristonHandler:
     _PARAM_MODE = "mode"
     _PARAM_ON = "power"
     _PARAM_SHOWERS = "showers"
+    _PARAM_REQUIRED_SHOWERS = "required_showers"
+    _PARAM_REQUIRED_SHOWERS_MAX = "max_required_showers"
     _PARAM_HEATING = "heating"
     _PARAM_CLEANSE = "antilegionella"
     _PARAM_ECO = "eco"
@@ -101,6 +105,10 @@ class AquaAristonHandler:
         _PARAM_CLEANSE,
         _PARAM_ECO,
         _PARAM_TIMER,
+    }
+    _GET_REQUEST_SHOWERS = {
+        _PARAM_REQUIRED_SHOWERS,
+        _PARAM_REQUIRED_SHOWERS_MAX,
     }
     _GET_REQUEST_ERRORS = {
         _PARAM_ERRORS
@@ -134,7 +142,8 @@ class AquaAristonHandler:
         *_GET_REQUEST_CLEANSE,
         *_GET_REQUEST_UPDATE,
         *_GET_REQUEST_TIME_PROGRAM,
-        *_GET_REQUEST_USE
+        *_GET_REQUEST_USE,
+        *_GET_REQUEST_SHOWERS,
     }
 
     _SET_REQUEST_MODE = {
@@ -152,13 +161,17 @@ class AquaAristonHandler:
     _SET_REQUEST_CLEANSE = {
         _PARAM_CLEANSE_TEMPERATURE
     }
+    _SET_REQUEST_SHOWERS = {
+        _PARAM_REQUIRED_SHOWERS
+    }
 
     _SENSOR_SET_LIST = {
         *_SET_REQUEST_MODE,
         *_SET_REQUEST_ON,
         *_SET_REQUEST_TEMPERATURE,
         *_SET_REQUEST_ECO,
-        *_SET_REQUEST_CLEANSE
+        *_SET_REQUEST_CLEANSE,
+        *_SET_REQUEST_SHOWERS,
     }
 
     _FILE_FOLDER = "http_logs"
@@ -183,12 +196,14 @@ class AquaAristonHandler:
     _REQUEST_GET_TIME_PROG = "_get_time_prog"
     _REQUEST_GET_VERSION = "_get_version"
     _REQUEST_GET_USE = "_get_use"
+    _REQUEST_GET_SHOWERS = "_get_showers"
 
     _REQUEST_SET_MAIN = "_set_main"
     _REQUEST_SET_ON = "_set_on"
     _REQUEST_SET_TEMPERATURE = "_set_temperature"
     _REQUEST_SET_ECO = "_set_eco"
     _REQUEST_SET_CLEANSE = "_set_cleanse"
+    _REQUEST_SET_SHOWERS = "_set_showers"
 
     _VALUE_TO_DATE = {
         0: "sunday",
@@ -223,6 +238,8 @@ class AquaAristonHandler:
             return self._REQUEST_GET_TIME_PROG
         elif data in self._GET_REQUEST_USE:
             return self._REQUEST_GET_USE
+        elif data in self._GET_REQUEST_SHOWERS:
+            return self._REQUEST_GET_SHOWERS
         else:
             return self._REQUEST_GET_MAIN
 
@@ -235,6 +252,8 @@ class AquaAristonHandler:
             return self._REQUEST_SET_ECO
         elif data in self._SET_REQUEST_CLEANSE:
             return self._REQUEST_SET_CLEANSE
+        elif data in self._SET_REQUEST_SHOWERS:
+            return self._REQUEST_SET_SHOWERS
         else:
             return self._REQUEST_SET_MAIN
 
@@ -279,19 +298,19 @@ class AquaAristonHandler:
             self._store_folder = ""
 
         self._ariston_sensors = {}
-        for sensor in self._SENSOR_LIST:
-            self._ariston_sensors[sensor] = {}
-            self._ariston_sensors[sensor][self._VALUE] = None
-            self._ariston_sensors[sensor][self._UNITS] = None
-            if sensor in {
+        for sensor_all in self._SENSOR_LIST:
+            self._ariston_sensors[sensor_all] = {}
+            self._ariston_sensors[sensor_all][self._VALUE] = None
+            self._ariston_sensors[sensor_all][self._UNITS] = None
+            if sensor_all in {
                 self._PARAM_CURRENT_TEMPERATURE,
                 self._PARAM_REQUIRED_TEMPERATURE,
                 self._PARAM_CLEANSE_TEMPERATURE,
                 self._PARAM_CLEANSE_MIN,
                 self._PARAM_CLEANSE_MAX
             }:
-                self._ariston_sensors[sensor][self._UNITS] = "°C"
-            if sensor in {
+                self._ariston_sensors[sensor_all][self._UNITS] = "°C"
+            if sensor_all in {
                 self._PARAM_ENERGY_USE_DAY,
                 self._PARAM_ENERGY_USE_WEEK,
                 self._PARAM_ENERGY_USE_MONTH,
@@ -301,14 +320,16 @@ class AquaAristonHandler:
                 self._PARAM_ENERGY_USE_MONTH_PERIODS,
                 self._PARAM_ENERGY_USE_YEAR_PERIODS,
             }:
-                self._ariston_sensors[sensor][self._UNITS] = "kWh"
+                self._ariston_sensors[sensor_all][self._UNITS] = "kWh"
 
+        self._showers_for_temp = False
         # clear configuration data
         self._ariston_main_data = {}
         self._ariston_error_data = []
         self._ariston_cleanse_data = {}
         self._ariston_time_prog_data = {}
         self._ariston_use_data = {}
+        self._ariston_shower_data = {}
         # initiate all other data
         self._timer_periodic_read = threading.Timer(1, self._queue_get_data)
         self._timer_queue_delay = threading.Timer(1, self._control_availability_state, [self._REQUEST_GET_MAIN])
@@ -324,6 +345,7 @@ class AquaAristonHandler:
             self._REQUEST_GET_CLEANSE: 0.,
             self._REQUEST_GET_TIME_PROG: 0.,
             self._REQUEST_GET_USE: 0.,
+            self._REQUEST_GET_SHOWERS: 0.,
         }
         self._get_time_end = {
             self._REQUEST_GET_MAIN: 0.,
@@ -331,6 +353,7 @@ class AquaAristonHandler:
             self._REQUEST_GET_CLEANSE: 0.,
             self._REQUEST_GET_TIME_PROG: 0.,
             self._REQUEST_GET_USE: 0.,
+            self._REQUEST_GET_SHOWERS: 0.,
         }
         self._lock = threading.Lock()
         self._login = False
@@ -342,13 +365,15 @@ class AquaAristonHandler:
         self._set_param_group = {
             self._REQUEST_GET_MAIN: False,
             self._REQUEST_GET_CLEANSE: False,
+            self._REQUEST_GET_SHOWERS: False,
         }
         self._set_retry = {
             self._REQUEST_SET_MAIN: 0,
             self._REQUEST_SET_ON: 0,
             self._REQUEST_SET_TEMPERATURE: 0,
             self._REQUEST_SET_ECO: 0,
-            self._REQUEST_SET_CLEANSE: 0
+            self._REQUEST_SET_CLEANSE: 0,
+            self._REQUEST_SET_SHOWERS: 0,
         }
         self._set_max_retries = retries
         self._set_new_data_pending = False
@@ -358,14 +383,16 @@ class AquaAristonHandler:
             self._REQUEST_SET_ON: 0.,
             self._REQUEST_SET_TEMPERATURE: 0.,
             self._REQUEST_SET_ECO: 0.,
-            self._REQUEST_SET_CLEANSE: 0.
+            self._REQUEST_SET_CLEANSE: 0.,
+            self._REQUEST_SET_SHOWERS: 0.,
         }
         self._set_time_end = {
             self._REQUEST_SET_MAIN: 0.,
             self._REQUEST_SET_ON: 0.,
             self._REQUEST_SET_TEMPERATURE: 0.,
             self._REQUEST_SET_ECO: 0.,
-            self._REQUEST_SET_CLEANSE: 0.
+            self._REQUEST_SET_CLEANSE: 0.,
+            self._REQUEST_SET_SHOWERS: 0.,
         }
         self._store_file = store_file
 
@@ -384,6 +411,7 @@ class AquaAristonHandler:
             self._REQUEST_GET_TIME_PROG: False,
             self._REQUEST_GET_VERSION: False,
             self._REQUEST_GET_USE: False,
+            self._REQUEST_GET_SHOWERS: False,
         }
         # prepare lists of requests
         if sensors:
@@ -393,6 +421,8 @@ class AquaAristonHandler:
         self._request_list_high_prio = []
         if self._valid_requests[self._REQUEST_GET_MAIN]:
             self._request_list_high_prio.append(self._REQUEST_GET_MAIN)
+        if self._valid_requests[self._REQUEST_GET_SHOWERS]:
+            self._request_list_high_prio.append(self._REQUEST_GET_SHOWERS)
         if self._valid_requests[self._REQUEST_GET_CLEANSE]:
             self._request_list_high_prio.append(self._REQUEST_GET_CLEANSE)
         if self._valid_requests[self._REQUEST_GET_ERROR]:
@@ -452,8 +482,17 @@ class AquaAristonHandler:
     @property
     def available(self) -> bool:
         """Return if Aristons's API is responding."""
-        return self._errors <= self._MAX_ERRORS and self._login and self._plant_id != "" and \
-               self._ariston_main_data != {}
+        if not self._login or not self._plant_id or not self._ariston_main_data:
+            return False
+        return self._errors <= self._MAX_ERRORS
+
+    @property
+    def dhw_available(self) -> bool:
+        """Return if Aristons's DHW is responding."""
+        if self._showers_for_temp:
+            if not self._ariston_shower_data:
+                return False
+        return self.available
 
     @property
     def version(self) -> str:
@@ -516,7 +555,7 @@ class AquaAristonHandler:
                 sensors_dictionary[parameter] = {*self._STRING_TO_VALUE}
             elif parameter == self._PARAM_CLEANSE_TEMPERATURE:
                 param_values = dict()
-                if self._ariston_cleanse_data != {}:
+                if self._ariston_cleanse_data:
                     param_values["min"] = self._ariston_cleanse_data["MedMaxSetpointTemperatureMin"]
                     param_values["max"] = self._ariston_cleanse_data["MedMaxSetpointTemperatureMax"]
                     param_values["step"] = 1.
@@ -528,6 +567,16 @@ class AquaAristonHandler:
                 param_values["min"] = 40.
                 param_values["max"] = 80.
                 param_values["step"] = 1.
+                sensors_dictionary[parameter] = param_values
+            elif parameter == self._PARAM_REQUIRED_SHOWERS:
+                param_values = dict()
+                if self._ariston_shower_data:
+                    if self._showers_for_temp:
+                        param_values["min"] = 1
+                    else:
+                        param_values["min"] = 0
+                    param_values["max"] = self._ariston_shower_data["maxReqShw"]
+                    param_values["step"] = 1
                 sensors_dictionary[parameter] = param_values
         return sensors_dictionary
 
@@ -557,25 +606,44 @@ class AquaAristonHandler:
                     self._url + "/Error/Active/") or resp.url.startswith(
                     self._url + "/PlantGuest/Index/") or resp.url.startswith(
                     self._url + "/TimeProg/Index/"):
-                with self._plant_id_lock:
-                    self._plant_id = resp.url.split("/")[5]
-                    self._login = True
-                    self._LOGGER.info('%s Plant ID is %s', self, self._plant_id)
+                plan_id = resp.url.split("/")[5]
             elif resp.url.startswith(self._url + "/PlantData/Index/") or resp.url.startswith(
                     self._url + "/UserData/Index/"):
-                with self._plant_id_lock:
-                    plant_id_attribute = resp.url.split("/")[5]
-                    self._plant_id = plant_id_attribute.split("?")[0]
-                    self._login = True
-                    self._LOGGER.info('%s Plant ID is %s', self, self._plant_id)
+                plant_id_attribute = resp.url.split("/")[5]
+                plan_id = plant_id_attribute.split("?")[0]
             elif resp.url.startswith(self._url + "/Menu/User/Index/"):
-                with self._plant_id_lock:
-                    self._plant_id = resp.url.split("/")[6]
-                    self._login = True
-                    self._LOGGER.info('%s Plant ID is %s', self, self._plant_id)
+                plan_id = resp.url.split("/")[6]
             else:
                 self._LOGGER.warning('%s Authentication login error', self)
                 raise Exception("Login parsing of URL failed")
+            url = self._url + '/api/v2/velis/plants?appId=com.remotethermo.velis'
+            try:
+                resp = self._session.get(
+                    url,
+                    auth=self._token,
+                    timeout=self._timeout_long,
+                    verify=True)
+            except requests.exceptions.RequestException:
+                self._LOGGER.warning('%s Authentication model fetch error', self)
+                raise Exception("Model fetch exception")
+            if resp.status_code != 200:
+                self._LOGGER.warning('%s Unexpected reply during model fetch: %s', self, resp.status_code)
+                raise Exception("Model unexpected reply code")
+            if not self._json_validator(resp.json()):
+                self._LOGGER.warning('%s Model fetch not JSON', self)
+                raise Exception("Model fetch not JSON")
+            for plant_instance in resp.json():
+                if plant_instance["gw"] == plan_id:
+                    if plant_instance["wheType"] == 1 or plant_instance["wheModelType"] == 1:
+                        # presumably it is Velis, which uses showers instead of temperatures
+                        self._showers_for_temp = True
+                        self._valid_requests[self._REQUEST_GET_SHOWERS] = True
+                        if self._REQUEST_GET_SHOWERS not in self._request_list_high_prio:
+                            self._request_list_high_prio.insert(1, self._REQUEST_GET_SHOWERS)
+            with self._plant_id_lock:
+                self._plant_id = plan_id
+                self._login = True
+                self._LOGGER.info('%s Plant ID is %s', self, self._plant_id)
         return
 
     def _set_sensors(self, request_type=""):
@@ -648,6 +716,26 @@ class AquaAristonHandler:
                 self._ariston_sensors[self._PARAM_CLEANSE][self._VALUE] = None
                 self._ariston_sensors[self._PARAM_ECO][self._VALUE] = None
                 self._ariston_sensors[self._PARAM_TIMER][self._VALUE] = None
+
+        elif request_type == self._REQUEST_GET_SHOWERS:
+
+            if self.available and self._ariston_shower_data:
+
+                try:
+                    self._ariston_sensors[self._PARAM_REQUIRED_SHOWERS][self._VALUE] = \
+                        self._ariston_shower_data["reqShw"]
+                except KeyError:
+                    self._ariston_sensors[self._PARAM_REQUIRED_SHOWERS][self._VALUE] = None
+
+                try:
+                    self._ariston_sensors[self._PARAM_REQUIRED_SHOWERS_MAX][self._VALUE] = \
+                        self._ariston_shower_data["maxReqShw"]
+                except KeyError:
+                    self._ariston_sensors[self._PARAM_REQUIRED_SHOWERS_MAX][self._VALUE] = None
+
+            else:
+                self._ariston_sensors[self._PARAM_REQUIRED_SHOWERS][self._VALUE] = None
+                self._ariston_sensors[self._PARAM_REQUIRED_SHOWERS_MAX][self._VALUE] = None
 
         elif request_type == self._REQUEST_GET_ERROR:
 
@@ -826,6 +914,10 @@ class AquaAristonHandler:
 
                             self._ariston_sensors[parameter][self._VALUE] = value
 
+                        elif parameter == self._PARAM_REQUIRED_SHOWERS:
+
+                            self._ariston_sensors[parameter][self._VALUE] = value
+
             except KeyError:
                 continue
 
@@ -896,6 +988,18 @@ class AquaAristonHandler:
             self._set_sensors(request_type)
             self._set_visible_data()
 
+        elif request_type == self._REQUEST_GET_SHOWERS:
+
+            try:
+                self._ariston_shower_data = copy.deepcopy(resp.json())
+            except copy.error:
+                self._ariston_shower_data = {}
+                self._LOGGER.warning("%s Invalid data received for showers, not JSON", self)
+                raise Exception("Corruption at reading data of the request {}".format(request_type))
+
+            self._set_sensors(request_type)
+            self._set_visible_data()
+
         elif request_type == self._REQUEST_GET_VERSION:
             try:
                 self._version = resp.json()["info"]["version"]
@@ -922,6 +1026,8 @@ class AquaAristonHandler:
                     json.dump(self._ariston_time_prog_data, ariston_fetched)
                 elif request_type == self._REQUEST_GET_USE:
                     json.dump(self._ariston_use_data, ariston_fetched)
+                elif request_type == self._REQUEST_GET_SHOWERS:
+                    json.dump(self._ariston_shower_data, ariston_fetched)
                 elif request_type == self._REQUEST_GET_VERSION:
                     ariston_fetched.write(self._version)
             store_file = 'data_ariston_timers.json'
@@ -956,6 +1062,10 @@ class AquaAristonHandler:
                 elif request_type == self._REQUEST_GET_USE:
                     url = self._url + '/api/v2/velis/reports/' + self._plant_id + \
                           '?usages=Dhw&appId=com.remotethermo.velis'
+                    http_timeout = self._timeout_long
+                elif request_type == self._REQUEST_GET_SHOWERS:
+                    url = self._url + '/api/v2/velis/plantData/' + self._plant_id + \
+                          '?appId=com.remotethermo.velis'
                     http_timeout = self._timeout_long
                 elif request_type == self._REQUEST_GET_VERSION:
                     url = self._GITHUB_LATEST_RELEASE
@@ -1027,6 +1137,15 @@ class AquaAristonHandler:
                     self._timer_queue_delay.start()
                 if not self._set_scheduled:
                     self._set_param_group[self._REQUEST_GET_MAIN] = False
+            elif self._set_param_group[self._REQUEST_GET_SHOWERS]:
+                # setting of main data is ongoing, prioritize it
+                self._timer_queue_delay.cancel()
+                if self._started:
+                    self._timer_queue_delay = threading.Timer(1, self._control_availability_state,
+                                                              [self._REQUEST_GET_SHOWERS])
+                    self._timer_queue_delay.start()
+                if not self._set_scheduled:
+                    self._set_param_group[self._REQUEST_GET_SHOWERS] = False
             elif self._set_param_group[self._REQUEST_GET_CLEANSE]:
                 # setting of parameter data is ongoing, prioritize it
                 self._timer_queue_delay.cancel()
@@ -1134,6 +1253,10 @@ class AquaAristonHandler:
             url = self._url + '/api/v2/velis/medPlantData/' + self._plant_id + \
                   '/temperature?appId=com.remotethermo.velis'
             http_timeout = self._timeout_medium
+        elif request_type == self._REQUEST_SET_SHOWERS:
+            url = self._url + '/api/v2/velis/plantData/' + self._plant_id + \
+                  '/showers?appId=com.remotethermo.velis'
+            http_timeout = self._timeout_medium
         else:
             # mode
             url = self._url + '/api/v2/velis/medPlantData/' + self._plant_id + \
@@ -1177,7 +1300,8 @@ class AquaAristonHandler:
                     self._REQUEST_SET_ON: {},
                     self._REQUEST_SET_TEMPERATURE: {},
                     self._REQUEST_SET_ECO: {},
-                    self._REQUEST_SET_CLEANSE: {}
+                    self._REQUEST_SET_CLEANSE: {},
+                    self._REQUEST_SET_SHOWERS: {},
                 }
                 
                 set_eco_on = False
@@ -1191,17 +1315,29 @@ class AquaAristonHandler:
                 set_temperature_data["eco"] = self._ariston_main_data["eco"]
                 set_temperature_data["old"] = self._ariston_main_data["reqTemp"]
                 set_temperature_data["new"] = self._ariston_main_data["reqTemp"]
-                
+
                 set_cleanse_data = dict()
-                try:
-                    set_cleanse_data["MedMaxSetpointTemperature"] = dict()
-                    set_cleanse_data["MedMaxSetpointTemperature"]["old"] = \
-                        self._ariston_cleanse_data["MedMaxSetpointTemperature"]
-                    set_cleanse_data["MedMaxSetpointTemperature"]["new"] = \
-                        self._ariston_cleanse_data["MedMaxSetpointTemperature"]
-                except KeyError:
-                    set_cleanse_data = {}
-                    self._LOGGER.error('%s antilegionella read issue during set', self)
+                set_showers_data = dict()
+                if self._PARAM_CLEANSE_TEMPERATURE in self._set_param:
+                    try:
+                        set_cleanse_data["MedMaxSetpointTemperature"] = dict()
+                        set_cleanse_data["MedMaxSetpointTemperature"]["old"] = \
+                            self._ariston_cleanse_data["MedMaxSetpointTemperature"]
+                        set_cleanse_data["MedMaxSetpointTemperature"]["new"] = \
+                            self._ariston_cleanse_data["MedMaxSetpointTemperature"]
+                    except KeyError:
+                        set_cleanse_data = {}
+                        self._LOGGER.error(
+                            '%s antilegionella temperature can not be set as no valid sensor data available', self)
+
+                elif self._PARAM_REQUIRED_SHOWERS in self._set_param:
+                    try:
+                        set_showers_data["old"] = self._ariston_shower_data["reqShw"]
+                        set_showers_data["new"] = self._ariston_shower_data["reqShw"]
+                    except KeyError:
+                        set_showers_data = {}
+                        self._LOGGER.error(
+                            '%s required showers can not be set as no valid sensor data available', self)
 
                 if self._PARAM_MODE in self._set_param:
 
@@ -1218,6 +1354,25 @@ class AquaAristonHandler:
                         set_mode_data["new"] = self._set_param[self._PARAM_MODE]
                         changed_parameter[self._set_request_for_parameter(self._PARAM_MODE)][
                             self._get_request_for_parameter(self._PARAM_MODE)] = True
+
+                if self._PARAM_REQUIRED_SHOWERS in self._set_param:
+
+                    if self._ariston_shower_data and math.isclose(
+                            self._ariston_shower_data["reqShw"],
+                            self._set_param[self._PARAM_REQUIRED_SHOWERS],
+                            abs_tol=0.01):
+                        if self._set_time_start[self._set_request_for_parameter(self._PARAM_REQUIRED_SHOWERS)] < \
+                                self._get_time_end[self._get_request_for_parameter(self._PARAM_REQUIRED_SHOWERS)]:
+                            # value should be up to date and match to remove from setting
+                            del self._set_param[self._PARAM_REQUIRED_SHOWERS]
+                        else:
+                            # assume data was not yet changed
+                            changed_parameter[self._set_request_for_parameter(self._PARAM_REQUIRED_SHOWERS)][
+                                self._get_request_for_parameter(self._PARAM_REQUIRED_SHOWERS)] = True
+                    else:
+                        set_showers_data["new"] = self._set_param[self._PARAM_REQUIRED_SHOWERS]
+                        changed_parameter[self._set_request_for_parameter(self._PARAM_REQUIRED_SHOWERS)][
+                            self._get_request_for_parameter(self._PARAM_REQUIRED_SHOWERS)] = True
 
                 if self._PARAM_ON in self._set_param:
 
@@ -1368,6 +1523,15 @@ class AquaAristonHandler:
                     except requests.exceptions.RequestException:
                         self._LOGGER.warning('%s Setting temperature failed', self)
 
+                elif changed_parameter[self._REQUEST_SET_SHOWERS] != {}:
+
+                    try:
+                        self._setting_http_data(set_showers_data, self._REQUEST_SET_SHOWERS)
+                    except TypeError:
+                        self._LOGGER.warning('%s Setting showers failed', self)
+                    except requests.exceptions.RequestException:
+                        self._LOGGER.warning('%s Setting showers failed', self)
+
                 elif changed_parameter[self._REQUEST_SET_CLEANSE] != {}:
 
                     try:
@@ -1440,6 +1604,7 @@ class AquaAristonHandler:
             - 'antilegionella_set_temperature'
             - 'eco'
             - 'required_temperature'
+            - 'required_showers'
 
         Supported values must be viewed in the property 'supported_sensors_set_values',
         which are generated dynamically based on reported values.
@@ -1470,16 +1635,46 @@ class AquaAristonHandler:
                         elif parameter in {
                             self._PARAM_REQUIRED_TEMPERATURE,
                             self._PARAM_CLEANSE_TEMPERATURE,
+                            self._PARAM_REQUIRED_SHOWERS,
                         }:
                             value = float(value)
-                            if allowed_values[parameter]["min"] - 0.01 <= value \
+                            if allowed_values[parameter] and allowed_values[parameter]["min"] - 0.01 <= value \
                                     <= allowed_values[parameter]["max"] + 0.01:
-                                good_values[parameter] = value
+                                if parameter == self._PARAM_REQUIRED_SHOWERS:
+                                    good_values[parameter] = int(value)
+                                else:
+                                    good_values[parameter] = value
                                 good_parameter = True
                         if not good_parameter:
                             bad_values[parameter] = value
                     except KeyError:
                         bad_values[parameter] = value
+
+                if self._PARAM_REQUIRED_TEMPERATURE in good_values:
+                    # if temperature increase use increase of showers
+                    if self._showers_for_temp:
+                        try:
+                            required_showers = self.sensor_values[self._PARAM_REQUIRED_SHOWERS][self._VALUE]
+                            max_required_showers = self.sensor_values[self._PARAM_REQUIRED_SHOWERS_MAX][self._VALUE]
+                            old_temperature = self.sensor_values[self._PARAM_REQUIRED_TEMPERATURE][self._VALUE]
+                            if isinstance(required_showers, int) and isinstance(max_required_showers, int) and (
+                                    isinstance(old_temperature, int) or isinstance(old_temperature, float)):
+                                if old_temperature > good_values[self._PARAM_REQUIRED_TEMPERATURE]:
+                                    # decrease temperature
+                                    if required_showers >= \
+                                            self.supported_sensors_set_values[self._PARAM_REQUIRED_SHOWERS]["min"] + 1:
+                                        required_showers -= 1
+                                else:
+                                    # increase temperature
+                                    if required_showers < max_required_showers:
+                                        required_showers += 1
+                                good_values[self._PARAM_REQUIRED_SHOWERS] = required_showers
+                                del good_values[self._PARAM_REQUIRED_TEMPERATURE]
+                                self._LOGGER.info('%s temperature remapped to showers', self)
+                            else:
+                                self._LOGGER.warning('%s problem reading required showers', self)
+                        except KeyError:
+                            self._LOGGER.warning('%s problem reading required showers 2', self)
 
                 # check mode and set it
                 if self._PARAM_MODE in good_values:
@@ -1509,6 +1704,15 @@ class AquaAristonHandler:
                                         good_values[self._PARAM_ECO])
                         bad_values[self._PARAM_ECO] = good_values[self._PARAM_ECO]
 
+                if self._PARAM_REQUIRED_SHOWERS in good_values:
+                    try:
+                        self._set_param[self._PARAM_REQUIRED_SHOWERS] = good_values[self._PARAM_REQUIRED_SHOWERS]
+                        self._LOGGER.info('%s New mode %s', self, good_values[self._PARAM_REQUIRED_SHOWERS])
+                    except KeyError:
+                        self._LOGGER.warning('%s Unknown or unsupported showers or key error: %s', self,
+                                        good_values[self._PARAM_REQUIRED_SHOWERS])
+                        bad_values[self._PARAM_REQUIRED_SHOWERS] = good_values[self._PARAM_REQUIRED_SHOWERS]
+
                 if self._PARAM_REQUIRED_TEMPERATURE in good_values:
                     try:
                         self._set_param[self._PARAM_REQUIRED_TEMPERATURE] = \
@@ -1516,7 +1720,7 @@ class AquaAristonHandler:
                         self._LOGGER.info('%s New mode %s', self, good_values[self._PARAM_REQUIRED_TEMPERATURE])
                     except KeyError:
                         self._LOGGER.warning('%s Unknown or unsupported set temperature or key error: %s', self,
-                                        good_values[self._PARAM_REQUIRED_TEMPERATURE])
+                                             good_values[self._PARAM_REQUIRED_TEMPERATURE])
                         bad_values[self._PARAM_REQUIRED_TEMPERATURE] = good_values[self._PARAM_REQUIRED_TEMPERATURE]
 
                 if self._PARAM_CLEANSE_TEMPERATURE in good_values:
@@ -1525,8 +1729,8 @@ class AquaAristonHandler:
                             good_values[self._PARAM_CLEANSE_TEMPERATURE]
                         self._LOGGER.info('%s New mode %s', self, good_values[self._PARAM_CLEANSE_TEMPERATURE])
                     except KeyError:
-                        self._LOGGER.warning('%s Unknown or unsupported antilegionella temperature or key error: %s', self,
-                                        good_values[self._PARAM_CLEANSE_TEMPERATURE])
+                        self._LOGGER.warning('%s Unknown or unsupported antilegionella temperature or key error: %s',
+                                             self, good_values[self._PARAM_CLEANSE_TEMPERATURE])
                         bad_values[self._PARAM_CLEANSE_TEMPERATURE] = good_values[self._PARAM_CLEANSE_TEMPERATURE]
 
                 self._set_visible_data()

@@ -24,6 +24,8 @@ PARAM_ENERGY_USE_DAY_PERIODS = "energy_use_in_day_periods"
 PARAM_ENERGY_USE_WEEK_PERIODS = "energy_use_in_week_periods"
 PARAM_ENERGY_USE_MONTH_PERIODS = "energy_use_in_month_periods"
 PARAM_ENERGY_USE_YEAR_PERIODS = "energy_use_in_year_periods"
+PARAM_REQUIRED_SHOWERS = "required_showers"
+PARAM_REQUIRED_SHOWERS_MAX = "max_required_showers"
 
 PARAM_ONLINE = "online"
 PARAM_CHANGING_DATA = "changing_data"

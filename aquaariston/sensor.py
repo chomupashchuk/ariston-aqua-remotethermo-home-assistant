@@ -28,6 +28,7 @@ from .const import (
     PARAM_ENERGY_USE_WEEK_PERIODS,
     PARAM_ENERGY_USE_MONTH_PERIODS,
     PARAM_ENERGY_USE_YEAR_PERIODS,
+    PARAM_REQUIRED_SHOWERS,
     VAL_PROGRAM,
 )
 
@@ -49,6 +50,7 @@ SENSOR_ENERGY_USE_DAY = "Energy Use in the Last Day"
 SENSOR_ENERGY_USE_WEEK = "Energy Use in the Last Week"
 SENSOR_ENERGY_USE_MONTH = "Energy Use in the Last Month"
 SENSOR_ENERGY_USE_YEAR = "Energy Use in the Last Year"
+SENSOR_REQUIRED_SHOWERS = "Required Showers"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,6 +68,7 @@ SENSORS = {
     PARAM_ENERGY_USE_WEEK: [SENSOR_ENERGY_USE_WEEK, "mdi:cash"],
     PARAM_ENERGY_USE_MONTH: [SENSOR_ENERGY_USE_MONTH, "mdi:cash"],
     PARAM_ENERGY_USE_YEAR: [SENSOR_ENERGY_USE_YEAR, "mdi:cash"],
+    PARAM_REQUIRED_SHOWERS: [SENSOR_REQUIRED_SHOWERS, "mdi:shower-head"],
 }
 
 
@@ -171,6 +174,7 @@ class AristonAquaSensor(Entity):
             if self._sensor_type in {
                 PARAM_CLEANSE_TEMPERATURE,
                 PARAM_REQUIRED_TEMPERATURE,
+                PARAM_REQUIRED_SHOWERS,
             }:
                 try:
                     self._attrs["Min"] = self._api.supported_sensors_set_values[

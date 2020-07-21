@@ -35,6 +35,7 @@ from .const import (
     PARAM_ON,
     PARAM_CLEANSE_TEMPERATURE,
     PARAM_REQUIRED_TEMPERATURE,
+    PARAM_REQUIRED_SHOWERS,
     PARAM_CHANGING_DATA,
     PARAM_ONLINE,
 )
@@ -214,7 +215,11 @@ def setup(hass, config):
 
                 data = call.data.get(PARAM_ECO, "")
                 if data != "":
-                    parameter_list[_PARAM_ECO] = str(data).lower()
+                    parameter_list[PARAM_ECO] = str(data).lower()
+
+                data = call.data.get(PARAM_REQUIRED_SHOWERS, "")
+                if data != "":
+                    parameter_list[PARAM_REQUIRED_SHOWERS] = str(data).lower()
 
                 _LOGGER.debug("Ariston Aqua device found, data to check and send")
 

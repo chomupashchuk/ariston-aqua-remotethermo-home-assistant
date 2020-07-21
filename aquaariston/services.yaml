@@ -10,6 +10,9 @@ aqua_set_data:
     required_temperature:
       description: "(Optional) Set required temperature in steps of '1'."
       example: 45
+    required_showers:
+      description: "(Optional) Set required number of showers"
+      example: 2
     antilegionella_set_temperature:
       description: "(Optional) Set required temperature during antilegionella cycle in steps of '1'."
       example: 70

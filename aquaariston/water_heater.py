@@ -86,7 +86,7 @@ class AristonAquaWaterHeater(WaterHeaterEntity):
     @property
     def available(self):
         """Return True if entity is available."""
-        return self._api.available
+        return self._api.dhw_available
 
     @property
     def supported_features(self):
