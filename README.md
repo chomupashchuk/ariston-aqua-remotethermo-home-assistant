@@ -17,45 +17,47 @@ aquaariston:
 ### Configuration example with all optional parameters
 ```
 aquaariston:
-    username: !secret ariston_username
-    password: !secret ariston_password
-    switches:
-      - power
-      - eco
-    binary_sensors:
-      - power
-      - heating
-      - eco
-      - antilegionella
-      - online
-      - changing_data
-      - update
-    sensors:
-      - errors
-      - current_temperature
-      - required_temperature
-      - mode
-      - showers
-      - remaining_time
-      - antilegionella_set_temperature
-      - time_program
-      - energy_use_in_day
-      - energy_use_in_week
-      - energy_use_in_month
-      - energy_use_in_year
+  username: !secret ariston_username
+  password: !secret ariston_password
+  store_config_files: true            # indicates if to store API data in a folder
+  switches:
+    - eco                             # switches ECO mode
+    - power                           # switches power
+  binary_sensors:
+    - antilegionella                  # indicates antilegionella status
+    - changing_data                   # indicates ongoing configuration on server by the API
+    - eco                             # indicates ECO mode status
+    - heating                         # indicates ongoing heating
+    - online                          # indicates API online status
+    - power                           # indicates power status
+    - update                          # indicates API update
+  sensors:
+    - antilegionella_set_temperature  # antilegionella temperature
+    - current_temperature             # current temperature
+    - energy_use_in_day               # energy use in last day
+    - energy_use_in_month             # energy use in last week
+    - energy_use_in_week              # energy use in last month
+    - energy_use_in_year              # energy use in last year
+    - errors                          # errors
+    - mode                            # manual or time program mode
+    - remaining_time                  # remaining time for heating
+    - required_showers                # required amount of showers (might not work on all models)
+    - required_temperature            # required temperature (simulated by API itself for some models)
+    - showers                         # estimated amount of average showers
+    - temperature_mode                # indicates if required temeparture is based on required temperature or required showers
+    - time_program                    # time program schedule
 ```
 
 ## Services
 `aquaariston.aqua_set_data` - Sets the requested data.
 
 ### Service attributes
-  - `entity_id` - mandatory entity of Ariston water heater. For the rest of attributes please see Developer Tools tab Services within Home Assistant and select `aquaariston.aqua_set_data`. You may also directly read services.yaml within the `aquaariston` folder.
+  - `entity_id` - mandatory entity of Ariston water heater. For the rest of attributes please see Developer Tools tab Services within Home Assistant and select `aquaariston.aqua_set_data`. You may also directly read services.yaml within the `aquaariston` folder. Note that changing `required_showers` changes `temperature_mode` to `showers` and changing `required_temperature` changes `temperature_mode` to temperature on models that use shower mode (temperature mode is being simulated for some models like Velis wifi).
   
 ### Service use example
 ```
 service: aquaariston.aqua_set_data
 data:
     entity_id: 'water_heater.aqua_ariston'
-    required_temperature: 55
     antilegionella_set_temperature: 75
 ```
