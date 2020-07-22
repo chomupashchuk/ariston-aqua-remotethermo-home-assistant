@@ -59,7 +59,7 @@ class AquaAristonHandler:
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     """
 
-    _VERSION = "1.0.16"
+    _VERSION = "1.0.17"
 
     _LOGGER = logging.getLogger(__name__)
 
@@ -174,9 +174,13 @@ class AquaAristonHandler:
         *_SET_REQUEST_SHOWERS,
     }
 
-    _FILE_FOLDER = "http_logs"
+    _FILE_FOLDER = "aqua_http_logs"
     _ARISTON_URL = "https://www.ariston-net.remotethermo.com"
     _GITHUB_LATEST_RELEASE = 'https://pypi.python.org/pypi/aristonremotethermo/json'
+
+    _VAL_TEMPERATURE = "temperature"
+    _VAL_SHOWERS = "showers"
+    _SHOWERS_MODE = "showers_mode"
 
     _MAX_ERRORS = 10
     _MAX_ERRORS_TIMER_EXTEND = 5
@@ -287,15 +291,13 @@ class AquaAristonHandler:
                 if sensor not in self._SENSOR_LIST:
                     sensors.remove(sensor)
 
-        if store_file:
-            if store_folder != "":
-                self._store_folder = store_folder
-            else:
-                self._store_folder = os.path.join(os.getcwd(), self._FILE_FOLDER)
-            if not os.path.isdir(self._store_folder):
-                os.mkdir(self._store_folder)
+        if store_folder != "":
+            self._store_folder = store_folder
         else:
-            self._store_folder = ""
+            self._store_folder = os.path.join(os.getcwd(), self._FILE_FOLDER)
+        if store_file:
+            if not os.path.isdir(self._store_folder):
+                os.makedirs(self._store_folder)
 
         self._ariston_sensors = {}
         for sensor_all in self._SENSOR_LIST:
@@ -323,6 +325,8 @@ class AquaAristonHandler:
                 self._ariston_sensors[sensor_all][self._UNITS] = "kWh"
 
         self._showers_for_temp = False
+        self._showers_required_temp = 0
+        self._showers_mode = self._VAL_SHOWERS
         # clear configuration data
         self._ariston_main_data = {}
         self._ariston_error_data = []
@@ -396,6 +400,7 @@ class AquaAristonHandler:
         }
         self._store_file = store_file
 
+        self._temp_lock = threading.Lock()
         self._token_lock = threading.Lock()
         self._token = None
         self._url = self._ARISTON_URL
@@ -453,6 +458,8 @@ class AquaAristonHandler:
         self._started = False
 
         if self._store_file:
+            if not os.path.isdir(self._store_folder):
+                os.makedirs(self._store_folder)
             store_file = 'data_ariston_valid_requests.json'
             store_file_path = os.path.join(self._store_folder, store_file)
             with open(store_file_path, 'w') as ariston_fetched:
@@ -493,6 +500,19 @@ class AquaAristonHandler:
             if not self._ariston_shower_data:
                 return False
         return self.available
+
+    @property
+    def temperature_mode(self) -> str:
+        """
+        Return how temperature setting works. Some models use amount of showers and some use temperature.
+        'temperature' indicates that temperature being controlled by required temperature;
+        'showers' indicates that temperature being controlled by amount of required showers;
+
+        For models using amount of showers it is possible to change modes:
+            to 'temperature' by changing 'required_temperature' in set_http_data.
+            to 'showers' by changing 'required_showers' in set_http_data.
+        """
+        return self._showers_mode
 
     @property
     def version(self) -> str:
@@ -580,6 +600,68 @@ class AquaAristonHandler:
                 sensors_dictionary[parameter] = param_values
         return sensors_dictionary
 
+    def _write_showers_temp(self):
+        if self._showers_for_temp:
+            with self._temp_lock:
+                if not os.path.isdir(self._store_folder):
+                    os.makedirs(self._store_folder)
+                store_file = 'required_shower_temperature.json'
+                store_file_path = os.path.join(self._store_folder, store_file)
+                with open(store_file_path, 'w') as req_temp:
+                    json.dump({self._PARAM_REQUIRED_TEMPERATURE: self._showers_required_temp,
+                               self._SHOWERS_MODE: self._showers_mode
+                               }, req_temp)
+
+    def _read_showers_temp(self):
+        if self._showers_for_temp:
+            with self._temp_lock:
+                store_file = 'required_shower_temperature.json'
+                store_file_path = os.path.join(self._store_folder, store_file)
+                try:
+                    with open(store_file_path) as req_temp:
+                        temperature_data = json.load(req_temp)
+                    temperature = temperature_data[self._PARAM_REQUIRED_TEMPERATURE]
+                    self._showers_mode = temperature_data[self._SHOWERS_MODE]
+                except:
+                    temperature = 0
+            if not temperature and self._ariston_main_data:
+                temperature = self._ariston_main_data["reqTemp"]
+            self._showers_required_temp = temperature
+            self._write_showers_temp()
+
+    def _check_showers_temp(self):
+        if self._showers_for_temp and self._showers_mode == self._VAL_TEMPERATURE and self._ariston_main_data \
+                and self._ariston_shower_data and self._showers_required_temp:
+            try:
+                current_temp = self.sensor_values[self._PARAM_CURRENT_TEMPERATURE][self._VALUE]
+                current_showers = self.sensor_values[self._PARAM_REQUIRED_SHOWERS][self._VALUE]
+                max_showers = self.supported_sensors_set_values[self._PARAM_REQUIRED_SHOWERS]["max"]
+                min_showers = self.supported_sensors_set_values[self._PARAM_REQUIRED_SHOWERS]["max"]
+                heating = self.sensor_values[self._PARAM_HEATING][self._VALUE]
+                power = self.sensor_values[self._PARAM_ON][self._VALUE]
+                required_showers = current_showers
+                if current_temp and current_showers and max_showers and min_showers:
+                    if current_temp > self._showers_required_temp:
+                        # decrease showers
+                        if current_showers > min_showers and power:
+                            required_showers = current_showers - 1
+                    elif current_temp < self._showers_required_temp - 2:
+                        # increase showers
+                        if current_showers < max_showers and not heating and power:
+                            required_showers = current_showers + 1
+                    if current_showers != required_showers:
+                        self._set_param[self._PARAM_REQUIRED_SHOWERS] = required_showers
+                        self._set_visible_data()
+                        self._set_new_data_pending = True
+                        # set after short delay to not affect switch or climate or water_heater
+                        self._timer_set_delay.cancel()
+                        if self._started:
+                            self._timer_set_delay = threading.Timer(1, self._preparing_setting_http_data)
+                            self._timer_set_delay.start()
+            except KeyError:
+                self._LOGGER.info("%s check showers exception", self)
+        return
+
     def _login_session(self):
         """Login to fetch Ariston Plant ID and confirm login"""
         if not self._login and self._started:
@@ -640,6 +722,10 @@ class AquaAristonHandler:
                         self._valid_requests[self._REQUEST_GET_SHOWERS] = True
                         if self._REQUEST_GET_SHOWERS not in self._request_list_high_prio:
                             self._request_list_high_prio.insert(1, self._REQUEST_GET_SHOWERS)
+                            self._showers_mode = self._VAL_SHOWERS
+                            self._read_showers_temp()
+                            if not os.path.isdir(self._store_folder):
+                                os.makedirs(self._store_folder)
             with self._plant_id_lock:
                 self._plant_id = plan_id
                 self._login = True
@@ -671,8 +757,13 @@ class AquaAristonHandler:
                     self._ariston_sensors[self._PARAM_CURRENT_TEMPERATURE][self._VALUE] = None
 
                 try:
-                    self._ariston_sensors[self._PARAM_REQUIRED_TEMPERATURE][self._VALUE] = \
-                        self._ariston_main_data["reqTemp"]
+                    required_temp = self._ariston_main_data["reqTemp"]
+                    if self._showers_for_temp:
+                        if self._showers_mode == self._VAL_TEMPERATURE:
+                            self._read_showers_temp()
+                            # mode to base on temperature for boiler using only showers
+                            required_temp = self._showers_required_temp
+                    self._ariston_sensors[self._PARAM_REQUIRED_TEMPERATURE][self._VALUE] = required_temp
                 except KeyError:
                     self._ariston_sensors[self._PARAM_REQUIRED_TEMPERATURE][self._VALUE] = None
 
@@ -940,6 +1031,8 @@ class AquaAristonHandler:
             self._set_sensors(request_type)
             self._set_sensors(self._REQUEST_GET_VERSION)
             self._set_visible_data()
+            self._read_showers_temp()
+            self._check_showers_temp()
 
         elif request_type == self._REQUEST_GET_ERROR:
             try:
@@ -1013,6 +1106,8 @@ class AquaAristonHandler:
         self._get_time_end[request_type] = time.time()
 
         if self._store_file:
+            if not os.path.isdir(self._store_folder):
+                os.makedirs(self._store_folder)
             store_file = 'data_ariston' + request_type + '.json'
             store_file_path = os.path.join(self._store_folder, store_file)
             with open(store_file_path, 'w') as ariston_fetched:
@@ -1189,6 +1284,8 @@ class AquaAristonHandler:
                             self._get_request_number_low_prio = 0
 
             if self._store_file:
+                if not os.path.isdir(self._store_folder):
+                    os.makedirs(self._store_folder)
                 store_file = 'data_ariston_all_set_get.json'
                 store_file_path = os.path.join(self._store_folder, store_file)
                 with open(store_file_path, 'w') as ariston_fetched:
@@ -1222,6 +1319,8 @@ class AquaAristonHandler:
         self._LOGGER.info('setting http data')
         try:
             if self._store_file:
+                if not os.path.isdir(self._store_folder):
+                    os.makedirs(self._store_folder)
                 store_file = 'data_ariston' + request_type + '.json'
                 store_file_path = os.path.join(self._store_folder, store_file)
                 with open(store_file_path, 'w') as ariston_fetched:
@@ -1563,6 +1662,8 @@ class AquaAristonHandler:
                     self._set_param = {}
 
                 if self._store_file:
+                    if not os.path.isdir(self._store_folder):
+                        os.makedirs(self._store_folder)
                     store_file = 'data_ariston_all_set_get.json'
                     store_file_path = os.path.join(self._store_folder, store_file)
                     with open(store_file_path, 'w') as ariston_fetched:
@@ -1611,6 +1712,10 @@ class AquaAristonHandler:
 
         Example:
             set_http_data(mode='off',internet_time=True)
+
+        For models using amount of showers it is possible to change mode to 'temperature' by changing
+        'required_temperature' and change mode to 'showers' by changing 'required_showers' in set_http_data.
+        'required_showers' has higher priority if 2 are used in the same request.
         """
 
         if self._ariston_main_data != {}:
@@ -1650,31 +1755,22 @@ class AquaAristonHandler:
                     except KeyError:
                         bad_values[parameter] = value
 
-                if self._PARAM_REQUIRED_TEMPERATURE in good_values:
-                    # if temperature increase use increase of showers
-                    if self._showers_for_temp:
+                if self._showers_for_temp:
+                    if self._PARAM_REQUIRED_SHOWERS in good_values:
+                        self._showers_mode = self._VAL_SHOWERS
+                        self._write_showers_temp()
                         try:
-                            required_showers = self.sensor_values[self._PARAM_REQUIRED_SHOWERS][self._VALUE]
-                            max_required_showers = self.sensor_values[self._PARAM_REQUIRED_SHOWERS_MAX][self._VALUE]
-                            old_temperature = self.sensor_values[self._PARAM_REQUIRED_TEMPERATURE][self._VALUE]
-                            if isinstance(required_showers, int) and isinstance(max_required_showers, int) and (
-                                    isinstance(old_temperature, int) or isinstance(old_temperature, float)):
-                                if old_temperature > good_values[self._PARAM_REQUIRED_TEMPERATURE]:
-                                    # decrease temperature
-                                    if required_showers >= \
-                                            self.supported_sensors_set_values[self._PARAM_REQUIRED_SHOWERS]["min"] + 1:
-                                        required_showers -= 1
-                                else:
-                                    # increase temperature
-                                    if required_showers < max_required_showers:
-                                        required_showers += 1
-                                good_values[self._PARAM_REQUIRED_SHOWERS] = required_showers
-                                del good_values[self._PARAM_REQUIRED_TEMPERATURE]
-                                self._LOGGER.info('%s temperature remapped to showers', self)
-                            else:
-                                self._LOGGER.warning('%s problem reading required showers', self)
+                            self._ariston_sensors[self._PARAM_REQUIRED_TEMPERATURE][self._VALUE] = \
+                                self._ariston_main_data["reqTemp"]
                         except KeyError:
-                            self._LOGGER.warning('%s problem reading required showers 2', self)
+                            self._LOGGER.warning("%s no temperature during showers set", self)
+                    elif self._PARAM_REQUIRED_TEMPERATURE in good_values:
+                        self._showers_mode = self._VAL_TEMPERATURE
+                        self._showers_required_temp = good_values[self._PARAM_REQUIRED_TEMPERATURE]
+                        self._write_showers_temp()
+                        self._ariston_sensors[self._PARAM_REQUIRED_TEMPERATURE][self._VALUE] = \
+                            self._showers_required_temp
+                        del good_values[self._PARAM_REQUIRED_TEMPERATURE]
 
                 # check mode and set it
                 if self._PARAM_MODE in good_values:
@@ -1743,6 +1839,7 @@ class AquaAristonHandler:
                     self._timer_set_delay.start()
 
                 if bad_values != {}:
+                    self._LOGGER.warning("{} Following values could not be set: {}".format(self, bad_values))
                     raise Exception("Following values could not be set: {}".format(bad_values))
 
         else:

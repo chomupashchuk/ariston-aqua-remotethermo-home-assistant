@@ -110,7 +110,7 @@ class AristonAquaChecker:
             password=password,
             sensors=list_of_sensors,
             store_file=store_file,
-            store_folder="/config/aristonaqua_http_data",
+            #store_folder="/config/aquaariston_http_data",
         )
 
 

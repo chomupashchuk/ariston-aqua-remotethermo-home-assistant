@@ -29,7 +29,9 @@ from .const import (
     PARAM_ENERGY_USE_MONTH_PERIODS,
     PARAM_ENERGY_USE_YEAR_PERIODS,
     PARAM_REQUIRED_SHOWERS,
+    PARAM_TEMPERATURE_MODE,
     VAL_PROGRAM,
+    VAL_SHOWERS,
 )
 
 SCAN_INTERVAL = timedelta(seconds=2)
@@ -51,6 +53,7 @@ SENSOR_ENERGY_USE_WEEK = "Energy Use in the Last Week"
 SENSOR_ENERGY_USE_MONTH = "Energy Use in the Last Month"
 SENSOR_ENERGY_USE_YEAR = "Energy Use in the Last Year"
 SENSOR_REQUIRED_SHOWERS = "Required Showers"
+SENSOR_TEMPERATURE_MODE = "Temperature Mode"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -69,6 +72,7 @@ SENSORS = {
     PARAM_ENERGY_USE_MONTH: [SENSOR_ENERGY_USE_MONTH, "mdi:cash"],
     PARAM_ENERGY_USE_YEAR: [SENSOR_ENERGY_USE_YEAR, "mdi:cash"],
     PARAM_REQUIRED_SHOWERS: [SENSOR_REQUIRED_SHOWERS, "mdi:shower-head"],
+    PARAM_TEMPERATURE_MODE: [SENSOR_TEMPERATURE_MODE, "mdi:thermometer"],
 }
 
 
@@ -125,10 +129,16 @@ class AristonAquaSensor(Entity):
                     return "mdi:shield"
             except KeyError:
                 pass
-        if self._sensor_type == PARAM_MODE:
+        elif self._sensor_type == PARAM_MODE:
             try:
                 if self._api.sensor_values[PARAM_MODE][VALUE] == VAL_PROGRAM:
                     return "mdi:clock-outline"
+            except KeyError:
+                pass
+        elif self._sensor_type == PARAM_TEMPERATURE_MODE:
+            try:
+                if self._api.temperature_mode == VAL_SHOWERS:
+                    return "mdi:shower-head"
             except KeyError:
                 pass
         return self._icon
@@ -136,6 +146,8 @@ class AristonAquaSensor(Entity):
     @property
     def unit_of_measurement(self):
         """Return the units of measurement."""
+        if self._sensor_type == PARAM_TEMPERATURE_MODE:
+            return None
         try:
             return self._api.sensor_values[self._sensor_type][UNITS]
         except KeyError:
@@ -144,14 +156,17 @@ class AristonAquaSensor(Entity):
     @property
     def available(self):
         """Return True if entity is available."""
-        return (
-            self._api.available
+        if self._sensor_type == PARAM_TEMPERATURE_MODE:
+            return self._api.available
+        return self._api.available \
             and not self._api.sensor_values[self._sensor_type][VALUE] is None
-        )
 
     def update(self):
         """Get the latest data and updates the state."""
         try:
+            if self._sensor_type == PARAM_TEMPERATURE_MODE:
+                self._state = self._api.temperature_mode
+                return
             if not self._api.available:
                 return
             if not self._api.sensor_values[self._sensor_type][VALUE] is None:
