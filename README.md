@@ -2,6 +2,9 @@
 Thin integration is Aqua Ariston NET.
 You are free to modify and distribute it. It is distributed 'as is' with no liability for possible damage.
 
+## Donations
+If you like this app, please consider donating some sum to your local charity organizations or global organization like Red Cross. I don't mind receiving donations myself (you may conact me for more details if you want to), but please consider charity at first.
+
 ## Integration was tested and works with:
   - Ariston Lydos Wifi
   - Ariston Velis Wifi
