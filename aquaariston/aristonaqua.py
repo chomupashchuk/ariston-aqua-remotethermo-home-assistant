@@ -219,10 +219,12 @@ class AquaAristonHandler:
         6: "saturday"
     }
     _VALUE_TO_MODE = {
+        8: "night",
         5: "program",
         1: "manual",
     }
     _MODE_TO_VALUE = {
+        "night": 8,
         "program": 5,
         "manual": 1
     }
