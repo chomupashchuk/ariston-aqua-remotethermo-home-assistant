@@ -724,7 +724,7 @@ class AquaAristonHandler:
                     store_file = 'data_ariston_model_data.json'
                     store_file_path = os.path.join(self._store_folder, store_file)
                     with open(store_file_path, 'w') as ariston_fetched:
-                        json.dump(self._set_param_group, ariston_fetched)
+                        json.dump(resp.json(), ariston_fetched)
                 if plant_instance["gw"] == plan_id:
                     if plant_instance["wheType"] == 1 or plant_instance["wheModelType"] == 1:
                         # presumably it is Velis, which uses showers instead of temperatures
