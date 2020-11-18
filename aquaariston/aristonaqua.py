@@ -59,7 +59,7 @@ class AquaAristonHandler:
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     """
 
-    _VERSION = "1.0.17"
+    _VERSION = "1.0.19"
 
     _LOGGER = logging.getLogger(__name__)
 
@@ -273,6 +273,9 @@ class AquaAristonHandler:
         """
         Initialize API.
         """
+
+        if sensors is None:
+            sensors = list()
 
         if not isinstance(retries, int) or retries < 0:
             raise Exception("Invalid retries")
@@ -715,6 +718,13 @@ class AquaAristonHandler:
                 self._LOGGER.warning('%s Model fetch not JSON', self)
                 raise Exception("Model fetch not JSON")
             for plant_instance in resp.json():
+                if self._store_file:
+                    if not os.path.isdir(self._store_folder):
+                        os.makedirs(self._store_folder)
+                    store_file = 'data_ariston_model_data.json'
+                    store_file_path = os.path.join(self._store_folder, store_file)
+                    with open(store_file_path, 'w') as ariston_fetched:
+                        json.dump(self._set_param_group, ariston_fetched)
                 if plant_instance["gw"] == plan_id:
                     if plant_instance["wheType"] == 1 or plant_instance["wheModelType"] == 1:
                         # presumably it is Velis, which uses showers instead of temperatures
