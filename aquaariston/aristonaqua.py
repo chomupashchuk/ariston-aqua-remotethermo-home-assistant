@@ -725,8 +725,19 @@ class AquaAristonHandler:
                     store_file_path = os.path.join(self._store_folder, store_file)
                     with open(store_file_path, 'w') as ariston_fetched:
                         json.dump(resp.json(), ariston_fetched)
-                if plant_instance["gw"] == plan_id:
-                    if plant_instance["wheType"] == 1 or plant_instance["wheModelType"] == 1:
+                if 'gw' in plant_instance and plant_instance["gw"] == plan_id:
+                    if "name" in plant_instance and "lydos" in plant_instance["name"].lower():
+                        is_valis = False
+                    elif "name" in plant_instance and "velis" in plant_instance["name"].lower():
+                        is_valis = True
+                    elif "wheType" in plant_instance and plant_instance["wheType"] == 1:
+                        is_valis = True
+                    elif "wheModelType" in plant_instance and plant_instance["wheModelType"] == 1:
+                        is_valis = True
+                    else:
+                        is_valis = False
+                    
+                    if is_valis:
                         # presumably it is Velis, which uses showers instead of temperatures
                         self._showers_for_temp = True
                         self._valid_requests[self._REQUEST_GET_SHOWERS] = True
