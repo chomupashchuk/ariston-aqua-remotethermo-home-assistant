@@ -8,6 +8,7 @@ If you like this app, please consider donating some sum to your local charity or
 ## Integration was tested and works with:
   - Ariston Lydos Wifi
   - Ariston Velis Wifi
+  - Ariston Lydos Hybrid
 
 ## Installation
 In `/config` folder create `custom_components` folder and copy folder `aquaariston` with its contents in it. In `configuration.yaml` include:
