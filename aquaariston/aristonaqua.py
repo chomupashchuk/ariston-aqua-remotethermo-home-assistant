@@ -59,7 +59,7 @@ class AquaAristonHandler:
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     """
 
-    _VERSION = "1.0.19"
+    _VERSION = "1.0.20"
 
     _LOGGER = logging.getLogger(__name__)
 
@@ -209,6 +209,10 @@ class AquaAristonHandler:
     _REQUEST_SET_CLEANSE = "_set_cleanse"
     _REQUEST_SET_SHOWERS = "_set_showers"
 
+    _TYPE_VELIS = "velis"
+    _TYPE_LYDOS = "lydos"
+    _TYPE_LYDOS_HYBRID = "lydos_hybrid"
+
     _VALUE_TO_DATE = {
         0: "sunday",
         1: "monday",
@@ -218,14 +222,27 @@ class AquaAristonHandler:
         5: "friday",
         6: "saturday"
     }
-    _VALUE_TO_MODE = {
-        5: "program",
-        1: "manual",
-    }
+
+    _MODE_PROGRAM = "program"
+    _MODE_MANUAL = "manual"
+    _MODE_IMEMORY = "i-memory"
+    _MODE_BOOST = "boost"
+    _MODE_GREEN = "green"
+
     _MODE_TO_VALUE = {
-        "program": 5,
-        "manual": 1
+        _MODE_PROGRAM: 5,
+        _MODE_MANUAL: 1
     }
+    _VALUE_TO_MODE = {value: key for (key, value) in _MODE_TO_VALUE.items()}
+
+    _MODE_TO_VALUE_LYDOS_HYBRID = {
+        _MODE_IMEMORY: 1,
+        _MODE_GREEN: 2,
+        _MODE_PROGRAM: 6,
+        _MODE_BOOST: 7,
+    }
+    _VALUE_TO_MODE_LYDOS_HYBRID = {value: key for (key, value) in _MODE_TO_VALUE_LYDOS_HYBRID.items()}
+
     _STRING_TO_VALUE = {
         "true": True,
         "false": False
@@ -327,7 +344,10 @@ class AquaAristonHandler:
             }:
                 self._ariston_sensors[sensor_all][self._UNITS] = "kWh"
 
-        self._showers_for_temp = False
+        self._boiler_type = self._TYPE_LYDOS
+        self._mode_to_val = self._MODE_TO_VALUE
+        self._val_to_mode = self._VALUE_TO_MODE
+        self._boiler_str = "med"
         self._showers_required_temp = 0
         self._showers_mode = self._VAL_SHOWERS
         # clear configuration data
@@ -499,7 +519,7 @@ class AquaAristonHandler:
     @property
     def dhw_available(self) -> bool:
         """Return if Aristons's DHW is responding."""
-        if self._showers_for_temp:
+        if self._boiler_type == self._TYPE_VELIS:
             if not self._ariston_shower_data:
                 return False
         return self.available
@@ -573,14 +593,18 @@ class AquaAristonHandler:
         sensors_dictionary = {}
         for parameter in self._SENSOR_SET_LIST:
             if parameter == self._PARAM_MODE:
-                sensors_dictionary[parameter] = {*self._MODE_TO_VALUE}
+                sensors_dictionary[parameter] = {*self._mode_to_val}
             elif parameter == self._PARAM_ON:
                 sensors_dictionary[parameter] = {*self._STRING_TO_VALUE}
             elif parameter == self._PARAM_CLEANSE_TEMPERATURE:
                 param_values = dict()
                 if self._ariston_cleanse_data:
-                    param_values["min"] = self._ariston_cleanse_data["MedMaxSetpointTemperatureMin"]
-                    param_values["max"] = self._ariston_cleanse_data["MedMaxSetpointTemperatureMax"]
+                    if self._boiler_type != self._TYPE_LYDOS_HYBRID:
+                        param_values["min"] = self._ariston_cleanse_data["MedMaxSetpointTemperatureMin"]
+                        param_values["max"] = self._ariston_cleanse_data["MedMaxSetpointTemperatureMax"]
+                    else:
+                        param_values["min"] = 70.
+                        param_values["max"] = 40.
                     param_values["step"] = 1.
                 sensors_dictionary[parameter] = param_values
             elif parameter == self._PARAM_ECO:
@@ -588,13 +612,19 @@ class AquaAristonHandler:
             elif parameter == self._PARAM_REQUIRED_TEMPERATURE:
                 param_values = dict()
                 param_values["min"] = 40.
-                param_values["max"] = 80.
                 param_values["step"] = 1.
+                if self._boiler_type != self._TYPE_LYDOS_HYBRID:
+                    param_values["max"] = 80.
+                else:
+                    param_values["max"] = 70.
+                    if self._ariston_sensors and self._PARAM_MODE in self._ariston_sensors:
+                        if self._ariston_sensors[self._PARAM_MODE][self._VALUE] in {self._MODE_GREEN}:
+                            param_values["max"] = 53.
                 sensors_dictionary[parameter] = param_values
             elif parameter == self._PARAM_REQUIRED_SHOWERS:
                 param_values = dict()
                 if self._ariston_shower_data:
-                    if self._showers_for_temp:
+                    if self._boiler_type == self._TYPE_VELIS:
                         param_values["min"] = 1
                     else:
                         param_values["min"] = 0
@@ -604,7 +634,7 @@ class AquaAristonHandler:
         return sensors_dictionary
 
     def _write_showers_temp(self):
-        if self._showers_for_temp:
+        if self._boiler_type == self._TYPE_VELIS:
             with self._temp_lock:
                 if not os.path.isdir(self._store_folder):
                     os.makedirs(self._store_folder)
@@ -616,7 +646,7 @@ class AquaAristonHandler:
                                }, req_temp)
 
     def _read_showers_temp(self):
-        if self._showers_for_temp:
+        if self._boiler_type == self._TYPE_VELIS:
             with self._temp_lock:
                 store_file = 'required_shower_temperature.json'
                 store_file_path = os.path.join(self._store_folder, store_file)
@@ -633,8 +663,8 @@ class AquaAristonHandler:
             self._write_showers_temp()
 
     def _check_showers_temp(self):
-        if self._showers_for_temp and self._showers_mode == self._VAL_TEMPERATURE and self._ariston_main_data \
-                and self._ariston_shower_data and self._showers_required_temp:
+        if self._boiler_type == self._TYPE_VELIS and self._showers_mode == self._VAL_TEMPERATURE \
+                and self._ariston_main_data and self._ariston_shower_data and self._showers_required_temp:
             try:
                 current_temp = self.sensor_values[self._PARAM_CURRENT_TEMPERATURE][self._VALUE]
                 current_showers = self.sensor_values[self._PARAM_REQUIRED_SHOWERS][self._VALUE]
@@ -727,19 +757,17 @@ class AquaAristonHandler:
                         json.dump(resp.json(), ariston_fetched)
                 if 'gw' in plant_instance and plant_instance["gw"] == plan_id:
                     if "name" in plant_instance and "lydos" in plant_instance["name"].lower():
-                        is_valis = False
-                    elif "name" in plant_instance and "velis" in plant_instance["name"].lower():
-                        is_valis = True
+                        self._boiler_type = self._TYPE_LYDOS_HYBRID
+                        self._boiler_str = "se"
+                        self._mode_to_val = self._MODE_TO_VALUE_LYDOS_HYBRID
+                        self._val_to_mode = self._VALUE_TO_MODE_LYDOS_HYBRID
                     elif "wheType" in plant_instance and plant_instance["wheType"] == 1:
-                        is_valis = True
+                        self._boiler_type = self._TYPE_VELIS
                     elif "wheModelType" in plant_instance and plant_instance["wheModelType"] == 1:
-                        is_valis = True
-                    else:
-                        is_valis = False
-                    
-                    if is_valis:
+                        self._boiler_type = self._TYPE_VELIS
+
+                    if self._boiler_type == self._TYPE_VELIS:
                         # presumably it is Velis, which uses showers instead of temperatures
-                        self._showers_for_temp = True
                         self._valid_requests[self._REQUEST_GET_SHOWERS] = True
                         if self._REQUEST_GET_SHOWERS not in self._request_list_high_prio:
                             self._request_list_high_prio.insert(1, self._REQUEST_GET_SHOWERS)
@@ -761,7 +789,7 @@ class AquaAristonHandler:
 
                 try:
                     self._ariston_sensors[self._PARAM_MODE][self._VALUE] = \
-                        self._VALUE_TO_MODE[self._ariston_main_data["mode"]]
+                        self._val_to_mode[self._ariston_main_data["mode"]]
                 except KeyError:
                     self._ariston_sensors[self._PARAM_MODE][self._VALUE] = None
 
@@ -779,7 +807,7 @@ class AquaAristonHandler:
 
                 try:
                     required_temp = self._ariston_main_data["reqTemp"]
-                    if self._showers_for_temp:
+                    if self._boiler_type == self._TYPE_VELIS:
                         if self._showers_mode == self._VAL_TEMPERATURE:
                             self._read_showers_temp()
                             # mode to base on temperature for boiler using only showers
@@ -1008,7 +1036,7 @@ class AquaAristonHandler:
 
                         if parameter == self._PARAM_MODE:
 
-                            self._ariston_sensors[parameter][self._VALUE] = self._VALUE_TO_MODE[value]
+                            self._ariston_sensors[parameter][self._VALUE] = self._val_to_mode[value]
 
                         elif parameter == self._PARAM_ON:
 
@@ -1164,31 +1192,26 @@ class AquaAristonHandler:
             if time.time() - last_set_of_data > self._HTTP_TIMER_SET_LOCK:
                 # do not read immediately during set attempt
                 if request_type == self._REQUEST_GET_CLEANSE:
-                    url = self._url + '/api/v2/velis/medPlantData/' + self._plant_id + \
-                          '/plantSettings?wheType=Med&appId=com.remotethermo.velis'
+                    url = f"{self._url}/api/v2/velis/{self._boiler_str}PlantData/{self._plant_id}/plantSettings?wheType=Med&appId=com.remotethermo.velis"
                     http_timeout = self._timeout_medium
                 elif request_type == self._REQUEST_GET_ERROR:
-                    url = self._url + '/api/v2/busErrors?gatewayId=' + self._plant_id + \
-                          '&culture=en-US&appId=com.remotethermo.velis'
+                    url = f"{self._url}/api/v2/busErrors?gatewayId={self._plant_id}&culture=en-US&appId=com.remotethermo.velis"
                     http_timeout = self._timeout_medium
                 elif request_type == self._REQUEST_GET_TIME_PROG:
-                    url = self._url + '/api/v2/velis/timeProgs/' + self._plant_id + \
-                          '?appId=com.remotethermo.velis'
+                    url = f"{self._url}/api/v2/velis/timeProgs/{self._plant_id}?appId=com.remotethermo.velis"
                     http_timeout = self._timeout_long
                 elif request_type == self._REQUEST_GET_USE:
-                    url = self._url + '/api/v2/velis/reports/' + self._plant_id + \
-                          '?usages=Dhw&appId=com.remotethermo.velis'
+                    url = f"{self._url}/api/v2/velis/reports/{self._plant_id }?usages=Dhw&appId=com.remotethermo.velis"
                     http_timeout = self._timeout_long
                 elif request_type == self._REQUEST_GET_SHOWERS:
-                    url = self._url + '/api/v2/velis/plantData/' + self._plant_id + \
-                          '?appId=com.remotethermo.velis'
+                    url = f"{self._url}/api/v2/velis/plantData/{self._plant_id}?appId=com.remotethermo.velis"
                     http_timeout = self._timeout_long
                 elif request_type == self._REQUEST_GET_VERSION:
                     url = self._GITHUB_LATEST_RELEASE
                     http_timeout = self._timeout_short
                 else:
                     # main data
-                    url = self._url + '/api/v2/velis/medPlantData/' + self._plant_id + '?appId=com.remotethermo.velis'
+                    url = f"{self._url}/api/v2/velis/{self._boiler_str}PlantData/{self._plant_id}?appId=com.remotethermo.velis"
                     if self.available:
                         http_timeout = self._timeout_long
                     else:
@@ -1358,29 +1381,27 @@ class AquaAristonHandler:
         except TypeError:
             self._LOGGER.warning('%s Problem storing files', self)
         if request_type == self._REQUEST_SET_CLEANSE:
-            url = self._url + '/api/v2/velis/medPlantData/' + self._plant_id + \
-                  '/plantSettings?appId=com.remotethermo.velis'
+            url = f"{self._url}/api/v2/velis/{self._boiler_str}PlantData/{self._plant_id}/plantSettings?appId=com.remotethermo.velis"
             http_timeout = self._timeout_medium
         elif request_type == self._REQUEST_SET_ECO:
-            url = self._url + '/api/v2/velis/medPlantData/' + self._plant_id + \
-                  '/switchEco?appId=com.remotethermo.velis'
+            url = f"{self._url}/api/v2/velis/{self._boiler_str}PlantData/{self._plant_id}/switchEco?appId=com.remotethermo.velis"
             http_timeout = self._timeout_medium
         elif request_type == self._REQUEST_SET_ON:
-            url = self._url + '/api/v2/velis/medPlantData/' + self._plant_id + \
-                  '/switch?appId=com.remotethermo.velis'
+            url = f"{self._url}/api/v2/velis/{self._boiler_str}PlantData/{self._plant_id}/switch?appId=com.remotethermo.velis"
             http_timeout = self._timeout_medium
         elif request_type == self._REQUEST_SET_TEMPERATURE:
-            url = self._url + '/api/v2/velis/medPlantData/' + self._plant_id + \
-                  '/temperature?appId=com.remotethermo.velis'
+            boost_str = ""
+            if self._boiler_type == self._TYPE_LYDOS_HYBRID and self._ariston_sensors and \
+                    self._PARAM_MODE in self._ariston_sensors and \
+                    self._ariston_sensors[self._PARAM_MODE][self._VALUE] == self._MODE_BOOST:
+                boost_str = "boost"
+            url = f"{self._url}/api/v2/velis/{self._boiler_str}PlantData/{self._plant_id}/{boost_str}temperature?appId=com.remotethermo.velis"
             http_timeout = self._timeout_medium
         elif request_type == self._REQUEST_SET_SHOWERS:
-            url = self._url + '/api/v2/velis/plantData/' + self._plant_id + \
-                  '/showers?appId=com.remotethermo.velis'
+            url = f"{self._url}/api/v2/velis/plantData/{self._plant_id}/showers?appId=com.remotethermo.velis"
             http_timeout = self._timeout_medium
-        else:
-            # mode
-            url = self._url + '/api/v2/velis/medPlantData/' + self._plant_id + \
-                  '/mode?appId=com.remotethermo.velis'
+        else: # mode
+            url = f"{self._url}/api/v2/velis/{self._boiler_str}PlantData/{self._plant_id}/mode?appId=com.remotethermo.velis"
             http_timeout = self._timeout_long
         try:
             self._set_time_start[request_type] = time.time()
@@ -1432,7 +1453,8 @@ class AquaAristonHandler:
                 set_mode_data["new"] = self._ariston_main_data["mode"]
 
                 set_temperature_data = dict()
-                set_temperature_data["eco"] = self._ariston_main_data["eco"]
+                if self._boiler_type != self._TYPE_LYDOS_HYBRID:
+                    set_temperature_data["eco"] = self._ariston_main_data["eco"]
                 set_temperature_data["old"] = self._ariston_main_data["reqTemp"]
                 set_temperature_data["new"] = self._ariston_main_data["reqTemp"]
 
@@ -1776,7 +1798,7 @@ class AquaAristonHandler:
                     except KeyError:
                         bad_values[parameter] = value
 
-                if self._showers_for_temp:
+                if self._boiler_type == self._TYPE_VELIS:
                     if self._PARAM_REQUIRED_SHOWERS in good_values:
                         self._showers_mode = self._VAL_SHOWERS
                         self._write_showers_temp()
@@ -1796,7 +1818,7 @@ class AquaAristonHandler:
                 # check mode and set it
                 if self._PARAM_MODE in good_values:
                     try:
-                        self._set_param[self._PARAM_MODE] = self._MODE_TO_VALUE[good_values[self._PARAM_MODE]]
+                        self._set_param[self._PARAM_MODE] = self._mode_to_val[good_values[self._PARAM_MODE]]
                         self._LOGGER.info('%s New mode %s', self, good_values[self._PARAM_MODE])
                     except KeyError:
                         self._LOGGER.warning('%s Unknown or unsupported mode or key error: %s', self,
