@@ -16,13 +16,19 @@ In `/config` folder create `custom_components` folder and copy folder `aquaarist
 aquaariston:
   username: !secret ariston_username
   password: !secret ariston_password
+  type: "lydos"
 ```
+Where `type` is one of:
+- `lydos`
+- `lydos_hybrid`
+- `velis`
 
 ### Configuration example with all optional parameters
 ```
 aquaariston:
   username: !secret ariston_username
   password: !secret ariston_password
+  type: "lydos"
   store_config_files: true            # indicates if to store API data in a folder
   switches:
     - eco                             # switches ECO mode
