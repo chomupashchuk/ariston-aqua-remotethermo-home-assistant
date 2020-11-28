@@ -37,8 +37,13 @@ VAL_MANUAL = "manual"
 VAL_PROGRAM = "program"
 VAL_SHOWERS = "showers"
 
+TYPE_LYDOS = "lydos"
+TYPE_LYDOS_HYBRID = "lydos_hybrid"
+TYPE_VELIS = "velis"
+
 CONF_MAX_RETRIES = "max_retries"
 CONF_STORE_CONFIG_FILES = "store_config_files"
+CONF_TYPE = "type"
 
 VALUE = "value"
 UNITS = "units"

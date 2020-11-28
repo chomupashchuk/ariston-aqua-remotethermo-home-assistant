@@ -29,6 +29,7 @@ from .const import (
     WATER_HEATERS,
     CONF_MAX_RETRIES,
     CONF_STORE_CONFIG_FILES,
+    CONF_TYPE,
     VALUE,
     PARAM_MODE,
     PARAM_ECO,
@@ -38,6 +39,9 @@ from .const import (
     PARAM_REQUIRED_SHOWERS,
     PARAM_CHANGING_DATA,
     PARAM_ONLINE,
+    TYPE_LYDOS,
+    TYPE_LYDOS_HYBRID,
+    TYPE_VELIS,
 )
 from .sensor import SENSORS
 from .switch import SWITCHES
@@ -51,6 +55,7 @@ ARISTONAQUA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_USERNAME): cv.string,
         vol.Required(CONF_PASSWORD): cv.string,
+        vol.Required(CONF_TYPE):  vol.In([TYPE_LYDOS, TYPE_LYDOS_HYBRID, TYPE_VELIS]),
         vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
         vol.Optional(CONF_BINARY_SENSORS): vol.All(
             cv.ensure_list, [vol.In(BINARY_SENSORS)]
@@ -91,6 +96,7 @@ class AristonAquaChecker:
         sensors,
         binary_sensors,
         switches,
+        type,
     ):
         """Initialize."""
 
@@ -115,6 +121,7 @@ class AristonAquaChecker:
         self.ariston_api = AquaAristonHandler(
             username=username,
             password=password,
+            boiler_type=type,
             sensors=list_of_sensors,
             store_file=store_file,
             #store_folder="/config/aquaariston_http_data",
@@ -135,6 +142,7 @@ def setup(hass, config):
         binary_sensors = device.get(CONF_BINARY_SENSORS)
         sensors = device.get(CONF_SENSORS)
         switches = device.get(CONF_SWITCHES)
+        type = device.get(CONF_TYPE)
 
         api = AristonAquaChecker(
             hass=hass,
@@ -146,6 +154,7 @@ def setup(hass, config):
             sensors=sensors,
             binary_sensors=binary_sensors,
             switches=switches,
+            type=type,
         )
 
         api_list.append(api)

@@ -19,6 +19,11 @@ class AquaAristonHandler:
 
     'password' - mandatory password;
 
+    'boiler_type' - mandatory boiler type:
+        - 'velis'
+        - 'lydos'
+        - 'lydos_hybrid'
+
     'sensors' - list of supported.
         - 'errors' - list of active errors.
         - 'current_temperature' - current temperature.
@@ -59,7 +64,7 @@ class AquaAristonHandler:
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     """
 
-    _VERSION = "1.0.20"
+    _VERSION = "1.0.21"
 
     _LOGGER = logging.getLogger(__name__)
 
@@ -213,6 +218,12 @@ class AquaAristonHandler:
     _TYPE_LYDOS = "lydos"
     _TYPE_LYDOS_HYBRID = "lydos_hybrid"
 
+    _SUPPORTED_BOILER_TYPES = {
+        _TYPE_VELIS,
+        _TYPE_LYDOS,
+        _TYPE_LYDOS_HYBRID
+    }
+
     _VALUE_TO_DATE = {
         0: "sunday",
         1: "monday",
@@ -281,6 +292,7 @@ class AquaAristonHandler:
     def __init__(self,
                  username: str,
                  password: str,
+                 boiler_type: str = "",
                  sensors: list = None,
                  retries: int = 5,
                  polling: Union[float, int] = 1.,
@@ -305,6 +317,9 @@ class AquaAristonHandler:
 
         if not isinstance(sensors, list):
             raise Exception("Invalid sensors type")
+
+        if boiler_type not in self._SUPPORTED_BOILER_TYPES:
+            raise Exception("Unknown boiler type")
 
         if sensors:
             for sensor in sensors:
@@ -344,10 +359,20 @@ class AquaAristonHandler:
             }:
                 self._ariston_sensors[sensor_all][self._UNITS] = "kWh"
 
-        self._boiler_type = self._TYPE_LYDOS
-        self._mode_to_val = self._MODE_TO_VALUE
-        self._val_to_mode = self._VALUE_TO_MODE
-        self._boiler_str = "med"
+        self._boiler_type = boiler_type
+        if boiler_type == self._TYPE_VELIS:
+            self._mode_to_val = self._MODE_TO_VALUE
+            self._val_to_mode = self._VALUE_TO_MODE
+            self._boiler_str = "med"
+        elif boiler_type == self._TYPE_LYDOS:
+            self._mode_to_val = self._MODE_TO_VALUE
+            self._val_to_mode = self._VALUE_TO_MODE
+            self._boiler_str = "med"
+        else: # Lydos Hybrid
+            self._mode_to_val = self._MODE_TO_VALUE_LYDOS_HYBRID
+            self._val_to_mode = self._VALUE_TO_MODE_LYDOS_HYBRID
+            self._boiler_str = "se"
+
         self._showers_required_temp = 0
         self._showers_mode = self._VAL_SHOWERS
         # clear configuration data
@@ -479,6 +504,16 @@ class AquaAristonHandler:
         self._current_temp_economy_dhw = None
 
         self._started = False
+
+        if self._boiler_type == self._TYPE_VELIS:
+            # presumably it is Velis, which uses showers instead of temperatures
+            self._valid_requests[self._REQUEST_GET_SHOWERS] = True
+            if self._REQUEST_GET_SHOWERS not in self._request_list_high_prio:
+                self._request_list_high_prio.insert(1, self._REQUEST_GET_SHOWERS)
+                self._showers_mode = self._VAL_SHOWERS
+                self._read_showers_temp()
+                if not os.path.isdir(self._store_folder):
+                    os.makedirs(self._store_folder)
 
         if self._store_file:
             if not os.path.isdir(self._store_folder):
@@ -755,26 +790,26 @@ class AquaAristonHandler:
                     store_file_path = os.path.join(self._store_folder, store_file)
                     with open(store_file_path, 'w') as ariston_fetched:
                         json.dump(resp.json(), ariston_fetched)
-                if 'gw' in plant_instance and plant_instance["gw"] == plan_id:
-                    if "name" in plant_instance and "lydos" in plant_instance["name"].lower():
-                        self._boiler_type = self._TYPE_LYDOS_HYBRID
-                        self._boiler_str = "se"
-                        self._mode_to_val = self._MODE_TO_VALUE_LYDOS_HYBRID
-                        self._val_to_mode = self._VALUE_TO_MODE_LYDOS_HYBRID
-                    elif "wheType" in plant_instance and plant_instance["wheType"] == 1:
-                        self._boiler_type = self._TYPE_VELIS
-                    elif "wheModelType" in plant_instance and plant_instance["wheModelType"] == 1:
-                        self._boiler_type = self._TYPE_VELIS
-
-                    if self._boiler_type == self._TYPE_VELIS:
-                        # presumably it is Velis, which uses showers instead of temperatures
-                        self._valid_requests[self._REQUEST_GET_SHOWERS] = True
-                        if self._REQUEST_GET_SHOWERS not in self._request_list_high_prio:
-                            self._request_list_high_prio.insert(1, self._REQUEST_GET_SHOWERS)
-                            self._showers_mode = self._VAL_SHOWERS
-                            self._read_showers_temp()
-                            if not os.path.isdir(self._store_folder):
-                                os.makedirs(self._store_folder)
+                # if 'gw' in plant_instance and plant_instance["gw"] == plan_id:
+                #     if "name" in plant_instance and "lydos" in plant_instance["name"].lower():
+                #         self._boiler_type = self._TYPE_LYDOS_HYBRID
+                #         self._boiler_str = "se"
+                #         self._mode_to_val = self._MODE_TO_VALUE_LYDOS_HYBRID
+                #         self._val_to_mode = self._VALUE_TO_MODE_LYDOS_HYBRID
+                #     elif "wheType" in plant_instance and plant_instance["wheType"] == 1:
+                #         self._boiler_type = self._TYPE_VELIS
+                #     elif "wheModelType" in plant_instance and plant_instance["wheModelType"] == 1:
+                #         self._boiler_type = self._TYPE_VELIS
+                #
+                #     if self._boiler_type == self._TYPE_VELIS:
+                #         # presumably it is Velis, which uses showers instead of temperatures
+                #         self._valid_requests[self._REQUEST_GET_SHOWERS] = True
+                #         if self._REQUEST_GET_SHOWERS not in self._request_list_high_prio:
+                #             self._request_list_high_prio.insert(1, self._REQUEST_GET_SHOWERS)
+                #             self._showers_mode = self._VAL_SHOWERS
+                #             self._read_showers_temp()
+                #             if not os.path.isdir(self._store_folder):
+                #                 os.makedirs(self._store_folder)
             with self._plant_id_lock:
                 self._plant_id = plan_id
                 self._login = True
