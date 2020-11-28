@@ -2,6 +2,7 @@
 
 from homeassistant.components.binary_sensor import (
     DEVICE_CLASS_CONNECTIVITY,
+    DEVICE_CLASS_POWER,
     DEVICE_CLASS_HEAT,
     BinarySensorEntity,
 )
@@ -41,8 +42,8 @@ BINARY_SENSORS = {
     PARAM_ONLINE: (BINARY_SENSOR_ONLINE, DEVICE_CLASS_CONNECTIVITY, None),
     PARAM_CHANGING_DATA: (BINARY_SENSOR_CHANGING_DATA, None, "mdi:cogs"),
     PARAM_UPDATE: (BINARY_SENSOR_UPDATE, None, "mdi:package-down"),
-    PARAM_ON: (BINARY_SENSOR_ON, None, "mdi:power"),
-    PARAM_HEATING: (BINARY_SENSOR_HEATING, None, "mdi:fire"),
+    PARAM_ON: (BINARY_SENSOR_ON, DEVICE_CLASS_POWER, "mdi:power"),
+    PARAM_HEATING: (BINARY_SENSOR_HEATING, DEVICE_CLASS_HEAT, "mdi:fire"),
     PARAM_CLEANSE: (BINARY_SENSOR_CLEANSE, None, "mdi:bacteria-outline"),
     PARAM_ECO: (BINARY_SENSOR_ECO, None, "mdi:leaf"),
 }

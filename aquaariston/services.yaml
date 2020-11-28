@@ -5,7 +5,7 @@ aqua_set_data:
       description: "(Mandatory) Water Heater 'enity_id' for Ariston heater"
       example: climate.ariston
     mode:
-      description: "(Optional) Mode: 'manual' or 'program' or 'i-memory' or 'boost' or 'green'. Supported modes depend on model."
+      description: "(Optional) Mode: 'manual' or 'program' or 'night' or 'i-memory' or 'boost' or 'green'. Supported modes depend on a model."
       example: manual
     required_temperature:
       description: "(Optional) Set required temperature in steps of '1'."

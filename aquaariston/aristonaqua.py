@@ -64,7 +64,7 @@ class AquaAristonHandler:
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     """
 
-    _VERSION = "1.0.21"
+    _VERSION = "1.0.22"
 
     _LOGGER = logging.getLogger(__name__)
 
@@ -236,11 +236,13 @@ class AquaAristonHandler:
 
     _MODE_PROGRAM = "program"
     _MODE_MANUAL = "manual"
+    _MODE_NIGHT = "night"
     _MODE_IMEMORY = "i-memory"
     _MODE_BOOST = "boost"
     _MODE_GREEN = "green"
 
     _MODE_TO_VALUE = {
+        _MODE_NIGHT: 8,
         _MODE_PROGRAM: 5,
         _MODE_MANUAL: 1
     }
