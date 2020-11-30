@@ -9,6 +9,7 @@ import time
 from typing import Union
 import requests
 
+
 class AquaAristonHandler:
     """
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -64,7 +65,7 @@ class AquaAristonHandler:
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     """
 
-    _VERSION = "1.0.22"
+    _VERSION = "1.0.23"
 
     _LOGGER = logging.getLogger(__name__)
 
@@ -188,7 +189,7 @@ class AquaAristonHandler:
     _SHOWERS_MODE = "showers_mode"
 
     _MAX_ERRORS = 10
-    _MAX_ERRORS_TIMER_EXTEND = 5
+    _MAX_ERRORS_TIMER_EXTEND = 7
 
     _HTTP_DELAY_MULTIPLY = 3
     _HTTP_TIMER_SET_LOCK = 20
@@ -1268,6 +1269,7 @@ class AquaAristonHandler:
                     self._store_data(resp, request_type)
             else:
                 self._LOGGER.debug("%s %s Still setting data, read restricted", self, request_type)
+                return False
         else:
             self._LOGGER.warning("%s %s Not properly logged in to get the data", self, request_type)
             raise Exception("Not logged in to fetch the data")
@@ -1372,11 +1374,15 @@ class AquaAristonHandler:
                 with open(store_file_path, 'w') as ariston_fetched:
                     json.dump(self._set_param_group, ariston_fetched)
 
-    def _control_availability_state(self, request_type=""):
-        """Control component availability"""
-        try:
-            self._get_http_data(request_type)
-        except Exception:
+    def _error_detected(self, request_type):
+        """Error detected"""
+        if request_type in {
+            self._REQUEST_GET_MAIN,
+            self._REQUEST_SET_MAIN,
+            self._REQUEST_SET_TEMPERATURE,
+            self._REQUEST_SET_SHOWERS,
+            self._REQUEST_SET_ON
+        }:
             with self._lock:
                 was_online = self.available
                 self._errors += 1
@@ -1385,14 +1391,32 @@ class AquaAristonHandler:
             if offline and was_online:
                 with self._plant_id_lock:
                     self._login = False
+                self._ariston_main_data = {}
+                self._ariston_error_data = []
+                self._ariston_cleanse_data = {}
+                self._ariston_time_prog_data = {}
+                self._ariston_use_data = {}
+                self._ariston_shower_data = {}
                 self._LOGGER.error("Ariston is offline: Too many errors")
-            raise Exception("Getting HTTP data has failed")
-        self._LOGGER.info("Data fetched successfully, available %s", self.available)
-        with self._lock:
-            was_offline = not self.available
-            self._errors = 0
-        if was_offline:
-            self._LOGGER.info("Ariston back online")
+
+    def _no_error_detected(self, request_type):
+        """No errors detected"""
+        if request_type in {self._REQUEST_GET_MAIN, self._REQUEST_SET_MAIN}:
+            with self._lock:
+                was_offline = not self.available
+                self._errors = 0
+            if was_offline:
+                self._LOGGER.info("No more errors")
+
+    def _control_availability_state(self, request_type=""):
+        """Control component availability"""
+        try:
+            result_ok = self._get_http_data(request_type)
+        except Exception:
+            self._error_detected(request_type)
+            return
+        if result_ok:
+            self._no_error_detected(request_type)
         return
 
     def _setting_http_data(self, set_data, request_type=""):
@@ -1449,12 +1473,15 @@ class AquaAristonHandler:
                 json=set_data,
                 verify=True)
         except requests.exceptions.RequestException:
+            self._error_detected(request_type)
             self._LOGGER.warning('%s %s error', self, request_type)
             raise Exception("Unexpected error for setting in the request {}".format(request_type))
         if resp.status_code != 200:
+            self._error_detected(request_type)
             self._LOGGER.warning("%s %s Command to set data failed with code: %s", self, request_type, resp.status_code)
             raise Exception("Unexpected code {} for setting in the request {}".format(resp.status_code, request_type))
         self._set_time_end[request_type] = time.time()
+        self._no_error_detected(request_type)
         self._LOGGER.info('%s %s Data was presumably changed', self, request_type)
 
     def _preparing_setting_http_data(self):
@@ -1683,6 +1710,8 @@ class AquaAristonHandler:
                         self._LOGGER.warning('%s Setting mode failed', self)
                     except requests.exceptions.RequestException:
                         self._LOGGER.warning('%s Setting mode failed', self)
+                    except Exception:
+                        self._LOGGER.warning('%s Setting mode failed', self)
 
                 elif changed_parameter[self._REQUEST_SET_ON] != {}:
 
@@ -1691,6 +1720,8 @@ class AquaAristonHandler:
                     except TypeError:
                         self._LOGGER.warning('%s Setting power failed', self)
                     except requests.exceptions.RequestException:
+                        self._LOGGER.warning('%s Setting power failed', self)
+                    except Exception:
                         self._LOGGER.warning('%s Setting power failed', self)
 
                 elif changed_parameter[self._REQUEST_SET_TEMPERATURE] != {}:
@@ -1701,6 +1732,8 @@ class AquaAristonHandler:
                         self._LOGGER.warning('%s Setting temperature failed', self)
                     except requests.exceptions.RequestException:
                         self._LOGGER.warning('%s Setting temperature failed', self)
+                    except Exception:
+                        self._LOGGER.warning('%s Setting temperature failed', self)
 
                 elif changed_parameter[self._REQUEST_SET_SHOWERS] != {}:
 
@@ -1709,6 +1742,8 @@ class AquaAristonHandler:
                     except TypeError:
                         self._LOGGER.warning('%s Setting showers failed', self)
                     except requests.exceptions.RequestException:
+                        self._LOGGER.warning('%s Setting showers failed', self)
+                    except Exception:
                         self._LOGGER.warning('%s Setting showers failed', self)
 
                 elif changed_parameter[self._REQUEST_SET_CLEANSE] != {}:
@@ -1719,6 +1754,8 @@ class AquaAristonHandler:
                         self._LOGGER.warning('%s Setting antilegionella failed', self)
                     except requests.exceptions.RequestException:
                         self._LOGGER.warning('%s Setting antilegionella failed', self)
+                    except Exception:
+                        self._LOGGER.warning('%s Setting antilegionella failed', self)
 
                 elif changed_parameter[self._REQUEST_SET_ECO] != {}:
 
@@ -1727,6 +1764,8 @@ class AquaAristonHandler:
                     except TypeError:
                         self._LOGGER.warning('%s Setting eco failed', self)
                     except requests.exceptions.RequestException:
+                        self._LOGGER.warning('%s Setting eco failed', self)
+                    except Exception:
                         self._LOGGER.warning('%s Setting eco failed', self)
 
                 else:
