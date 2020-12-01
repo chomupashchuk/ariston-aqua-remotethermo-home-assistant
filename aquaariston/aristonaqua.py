@@ -65,7 +65,7 @@ class AquaAristonHandler:
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     """
 
-    _VERSION = "1.0.23"
+    _VERSION = "1.0.24"
 
     _LOGGER = logging.getLogger(__name__)
 
@@ -1296,7 +1296,7 @@ class AquaAristonHandler:
                 self._timer_periodic_read = threading.Timer(retry_in, self._queue_get_data)
                 self._timer_periodic_read.start()
 
-            if not self.available:
+            if not self.available or self._errors > 0:
                 # first always initiate main data
                 self._timer_queue_delay.cancel()
                 if self._started:
