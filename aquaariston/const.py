@@ -44,6 +44,7 @@ TYPE_VELIS = "velis"
 CONF_MAX_RETRIES = "max_retries"
 CONF_STORE_CONFIG_FILES = "store_config_files"
 CONF_TYPE = "type"
+CONF_POLLING = "polling"
 
 VALUE = "value"
 UNITS = "units"

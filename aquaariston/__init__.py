@@ -30,6 +30,7 @@ from .const import (
     CONF_MAX_RETRIES,
     CONF_STORE_CONFIG_FILES,
     CONF_TYPE,
+    CONF_POLLING,
     VALUE,
     PARAM_MODE,
     PARAM_ECO,
@@ -48,6 +49,7 @@ from .switch import SWITCHES
 
 DEFAULT_NAME = "Aqua Ariston"
 DEFAULT_MAX_RETRIES = 5
+DEFAULT_POLLING = 1.0
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,6 +68,9 @@ ARISTONAQUA_SCHEMA = vol.Schema(
         ),
         vol.Optional(CONF_SWITCHES): vol.All(cv.ensure_list, [vol.In(SWITCHES)]),
         vol.Optional(CONF_STORE_CONFIG_FILES, default=False): cv.boolean,
+        vol.Optional(CONF_POLLING, default=DEFAULT_POLLING): vol.All(
+            float, vol.Range(min=1, max=5)
+        ),
     }
 )
 
@@ -96,7 +101,8 @@ class AristonAquaChecker:
         sensors,
         binary_sensors,
         switches,
-        type,
+        boiler_type,
+        polling
     ):
         """Initialize."""
 
@@ -121,9 +127,10 @@ class AristonAquaChecker:
         self.ariston_api = AquaAristonHandler(
             username=username,
             password=password,
-            boiler_type=type,
+            boiler_type=boiler_type,
             sensors=list_of_sensors,
             store_file=store_file,
+            polling=polling,
             #store_folder="/config/aquaariston_http_data",
         )
 
@@ -142,7 +149,8 @@ def setup(hass, config):
         binary_sensors = device.get(CONF_BINARY_SENSORS)
         sensors = device.get(CONF_SENSORS)
         switches = device.get(CONF_SWITCHES)
-        type = device.get(CONF_TYPE)
+        boiler_type = device.get(CONF_TYPE)
+        polling = device.get(CONF_POLLING)
 
         api = AristonAquaChecker(
             hass=hass,
@@ -154,7 +162,8 @@ def setup(hass, config):
             sensors=sensors,
             binary_sensors=binary_sensors,
             switches=switches,
-            type=type,
+            boiler_type=boiler_type,
+            polling=polling
         )
 
         api_list.append(api)

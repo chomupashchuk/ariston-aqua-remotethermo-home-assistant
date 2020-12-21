@@ -65,7 +65,7 @@ class AquaAristonHandler:
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     """
 
-    _VERSION = "1.0.25"
+    _VERSION = "1.0.27"
 
     _LOGGER = logging.getLogger(__name__)
 
@@ -751,6 +751,13 @@ class AquaAristonHandler:
                 self._LOGGER.warning('%s Authentication login error', self)
                 raise Exception("Login request exception")
             if resp.status_code != 200:
+                if self._store_file:
+                    if not os.path.isdir(self._store_folder):
+                        os.makedirs(self._store_folder)
+                    store_file = "data_ariston_login_" + str(resp.status_code) + "_error.txt"
+                    store_file_path = os.path.join(self._store_folder, store_file)
+                    with open(store_file_path, "w") as f:
+                        f.write(resp.text)
                 self._LOGGER.warning('%s Unexpected reply during login: %s', self, resp.status_code)
                 raise Exception("Login unexpected reply code")
             if resp.url.startswith(self._url + "/PlantDashboard/Index/") or resp.url.startswith(
@@ -780,6 +787,13 @@ class AquaAristonHandler:
                 self._LOGGER.warning('%s Authentication model fetch error', self)
                 raise Exception("Model fetch exception")
             if resp.status_code != 200:
+                if self._store_file:
+                    if not os.path.isdir(self._store_folder):
+                        os.makedirs(self._store_folder)
+                    store_file = "data_ariston_model_" + str(resp.status_code) + "_error.txt"
+                    store_file_path = os.path.join(self._store_folder, store_file)
+                    with open(store_file_path, "w") as f:
+                        f.write(resp.text)
                 self._LOGGER.warning('%s Unexpected reply during model fetch: %s', self, resp.status_code)
                 raise Exception("Model unexpected reply code")
             if not self._json_validator(resp.json()):
@@ -1102,9 +1116,23 @@ class AquaAristonHandler:
     def _store_data(self, resp, request_type=""):
         """Store received dictionary"""
         if resp.status_code != 200:
+            if self._store_file:
+                if not os.path.isdir(self._store_folder):
+                    os.makedirs(self._store_folder)
+                store_file = "data_ariston" + request_type + "_" + str(resp.status_code) + "_error.txt"
+                store_file_path = os.path.join(self._store_folder, store_file)
+                with open(store_file_path, "w") as f:
+                    f.write(resp.text)
             self._LOGGER.warning('%s %s invalid reply code %s', self, request_type, resp.status_code)
             raise Exception("Unexpected code {} received for the request {}".format(resp.status_code, request_type))
         if not self._json_validator(resp.json()):
+            if self._store_file:
+                if not os.path.isdir(self._store_folder):
+                    os.makedirs(self._store_folder)
+                store_file = "data_ariston" + request_type + "_non_json_error.txt"
+                store_file_path = os.path.join(self._store_folder, store_file)
+                with open(store_file_path, "w") as f:
+                    f.write(resp.text)
             self._LOGGER.warning('%s %s No json detected', self, request_type)
             raise Exception("JSON did not pass validation for the request {}".format(request_type))
         if request_type == self._REQUEST_GET_MAIN:
@@ -1478,6 +1506,13 @@ class AquaAristonHandler:
             raise Exception("Unexpected error for setting in the request {}".format(request_type))
         if resp.status_code != 200:
             self._error_detected(request_type)
+            if self._store_file:
+                if not os.path.isdir(self._store_folder):
+                    os.makedirs(self._store_folder)
+                store_file = "data_ariston" + request_type + "_" + str(resp.status_code) + "_error.txt"
+                store_file_path = os.path.join(self._store_folder, store_file)
+                with open(store_file_path, "w") as f:
+                    f.write(resp.text)
             self._LOGGER.warning("%s %s Command to set data failed with code: %s", self, request_type, resp.status_code)
             raise Exception("Unexpected code {} for setting in the request {}".format(resp.status_code, request_type))
         self._set_time_end[request_type] = time.time()
