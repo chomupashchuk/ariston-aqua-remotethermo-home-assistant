@@ -29,6 +29,7 @@ aquaariston:
   username: !secret ariston_username
   password: !secret ariston_password
   type: "lydos"
+  polling: 1.2                        # indicates relative time for requests waiting. Increase in case of timeouts. Default is 1.0
   store_config_files: true            # indicates if to store API data in a folder
   switches:
     - eco                             # switches ECO mode
