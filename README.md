@@ -22,6 +22,11 @@ Where `type` is one of:
 - `lydos`
 - `lydos_hybrid`
 - `velis`
+Order of Installation:
+- Copy data to `custom_components`;
+- Restart Home Assistant to find the component;
+- Include data in `configuration.yaml`;
+- Restart Home Asistant to see new services.
 
 ### Configuration example with all optional parameters
 ```
