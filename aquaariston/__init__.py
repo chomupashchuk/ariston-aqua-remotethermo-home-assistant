@@ -131,6 +131,7 @@ class AristonAquaChecker:
             sensors=list_of_sensors,
             store_file=store_file,
             polling=polling,
+            logging_level="DEBUG",
             #store_folder="/config/aquaariston_http_data",
         )
 

@@ -62,12 +62,29 @@ class AquaAristonHandler:
     'store_folder' - folder to store HTTP and internal data to. If empty string is used, then current working directory
     is used with a folder 'http_logs' within it.
 
+    'logging_level' - defines level of logging - allowed values [CRITICAL, ERROR, WARNING, INFO, DEBUG, NOTSET=(default)]
+
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     """
 
-    _VERSION = "1.0.28"
+    _VERSION = "1.0.29"
 
     _LOGGER = logging.getLogger(__name__)
+    _LEVEL_CRITICAL = "CRITICAL"
+    _LEVEL_ERROR = "ERROR"
+    _LEVEL_WARNING = "WARNING"
+    _LEVEL_INFO = "INFO"
+    _LEVEL_DEBUG = "DEBUG"
+    _LEVEL_NOTSET = "NOTSET"
+
+    _LOGGING_LEVELS = [
+        _LEVEL_CRITICAL,
+        _LEVEL_ERROR,
+        _LEVEL_WARNING,
+        _LEVEL_INFO,
+        _LEVEL_DEBUG,
+        _LEVEL_NOTSET
+    ]
 
     _VALUE = "value"
     _UNITS = "units"
@@ -301,6 +318,7 @@ class AquaAristonHandler:
                  polling: Union[float, int] = 1.,
                  store_file: bool = False,
                  store_folder: str = "",
+                 logging_level: str = _LEVEL_NOTSET,
                  ) -> None:
         """
         Initialize API.
@@ -324,6 +342,9 @@ class AquaAristonHandler:
         if boiler_type not in self._SUPPORTED_BOILER_TYPES:
             raise Exception("Unknown boiler type")
 
+        if logging_level not in self._LOGGING_LEVELS:
+            raise Exception("Invalid logging_level")
+
         if sensors:
             for sensor in sensors:
                 if sensor not in self._SENSOR_LIST:
@@ -336,6 +357,17 @@ class AquaAristonHandler:
         if store_file:
             if not os.path.isdir(self._store_folder):
                 os.makedirs(self._store_folder)
+
+        """
+        Logging settings
+        """
+        self._logging_level = logging.getLevelName(logging_level)
+        self._LOGGER.setLevel(self._logging_level)
+        self._console_handler = logging.StreamHandler()
+        self._console_handler.setLevel(self._logging_level)
+        self._formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        self._console_handler.setFormatter(self._formatter)
+        self._LOGGER.addHandler(self._console_handler)
 
         self._ariston_sensors = {}
         for sensor_all in self._SENSOR_LIST:
@@ -376,6 +408,8 @@ class AquaAristonHandler:
             self._val_to_mode = self._VALUE_TO_MODE_LYDOS_HYBRID
             self._boiler_str = "se"
 
+        self._max_temp_boiler = 80
+        self._max_temp_green = 53
         self._showers_required_temp = 0
         self._showers_mode = self._VAL_SHOWERS
         # clear configuration data
@@ -650,14 +684,12 @@ class AquaAristonHandler:
             elif parameter == self._PARAM_REQUIRED_TEMPERATURE:
                 param_values = dict()
                 param_values["min"] = 40.
-                param_values["step"] = 1.
-                if self._boiler_type != self._TYPE_LYDOS_HYBRID:
-                    param_values["max"] = 80.
-                else:
-                    param_values["max"] = 70.
+                param_values["max"] = self._max_temp_boiler
+                if self._boiler_type == self._TYPE_LYDOS_HYBRID:
                     if self._ariston_sensors and self._PARAM_MODE in self._ariston_sensors:
                         if self._ariston_sensors[self._PARAM_MODE][self._VALUE] in {self._MODE_GREEN}:
-                            param_values["max"] = 53.
+                            param_values["max"] = self._max_temp_green
+                param_values["step"] = 1.
                 sensors_dictionary[parameter] = param_values
             elif parameter == self._PARAM_REQUIRED_SHOWERS:
                 param_values = dict()
@@ -776,29 +808,43 @@ class AquaAristonHandler:
             else:
                 self._LOGGER.warning('%s Authentication login error', self)
                 raise Exception("Login parsing of URL failed")
-            url = self._url + '/api/v2/velis/plants?appId=com.remotethermo.velis'
-            try:
-                resp = self._session.get(
-                    url,
-                    auth=self._token,
-                    timeout=self._timeout_long,
-                    verify=True)
-            except requests.exceptions.RequestException:
-                self._LOGGER.warning('%s Authentication model fetch error', self)
-                raise Exception("Model fetch exception")
-            if resp.status_code != 200:
-                if self._store_file:
-                    if not os.path.isdir(self._store_folder):
-                        os.makedirs(self._store_folder)
-                    store_file = "data_ariston_model_" + str(resp.status_code) + "_error.txt"
-                    store_file_path = os.path.join(self._store_folder, store_file)
-                    with open(store_file_path, "w") as f:
-                        f.write(resp.text)
-                self._LOGGER.warning('%s Unexpected reply during model fetch: %s', self, resp.status_code)
-                raise Exception("Model unexpected reply code")
-            if not self._json_validator(resp.json()):
-                self._LOGGER.warning('%s Model fetch not JSON', self)
-                raise Exception("Model fetch not JSON")
+
+            with self._plant_id_lock:
+                self._plant_id = plan_id
+
+            # self._model_fetch()
+
+            if self._boiler_type == self._TYPE_LYDOS_HYBRID:
+                self._fetch_max_temp()
+
+            with self._plant_id_lock:
+                self._login = True
+                self._LOGGER.info('%s Plant ID is %s', self, self._plant_id)
+        return
+
+    def _model_fetch(self):
+        """Fetch model data"""
+        url = f"{self._url}/api/v2/velis/plants?appId=com.remotethermo.velis"
+        try:
+            resp = self._session.get(
+                url,
+                auth=self._token,
+                timeout=self._timeout_long,
+                verify=True)
+        except requests.exceptions.RequestException:
+            self._LOGGER.warning('%s Authentication model fetch error', self)
+            raise Exception("Model fetch exception")
+        if resp.status_code != 200:
+            if self._store_file:
+                if not os.path.isdir(self._store_folder):
+                    os.makedirs(self._store_folder)
+                store_file = "data_ariston_model_" + str(resp.status_code) + "_error.txt"
+                store_file_path = os.path.join(self._store_folder, store_file)
+                with open(store_file_path, "w") as f:
+                    f.write(resp.text)
+            self._LOGGER.warning('%s Unexpected reply during model fetch: %s', self, resp.status_code)
+            raise Exception("Model unexpected reply code")
+        if self._json_validator(resp.json()):
             for plant_instance in resp.json():
                 if self._store_file:
                     if not os.path.isdir(self._store_folder):
@@ -807,31 +853,44 @@ class AquaAristonHandler:
                     store_file_path = os.path.join(self._store_folder, store_file)
                     with open(store_file_path, 'w') as ariston_fetched:
                         json.dump(resp.json(), ariston_fetched)
-                # if 'gw' in plant_instance and plant_instance["gw"] == plan_id:
-                #     if "name" in plant_instance and "lydos" in plant_instance["name"].lower():
-                #         self._boiler_type = self._TYPE_LYDOS_HYBRID
-                #         self._boiler_str = "se"
-                #         self._mode_to_val = self._MODE_TO_VALUE_LYDOS_HYBRID
-                #         self._val_to_mode = self._VALUE_TO_MODE_LYDOS_HYBRID
-                #     elif "wheType" in plant_instance and plant_instance["wheType"] == 1:
-                #         self._boiler_type = self._TYPE_VELIS
-                #     elif "wheModelType" in plant_instance and plant_instance["wheModelType"] == 1:
-                #         self._boiler_type = self._TYPE_VELIS
-                #
-                #     if self._boiler_type == self._TYPE_VELIS:
-                #         # presumably it is Velis, which uses showers instead of temperatures
-                #         self._valid_requests[self._REQUEST_GET_SHOWERS] = True
-                #         if self._REQUEST_GET_SHOWERS not in self._request_list_high_prio:
-                #             self._request_list_high_prio.insert(1, self._REQUEST_GET_SHOWERS)
-                #             self._showers_mode = self._VAL_SHOWERS
-                #             self._read_showers_temp()
-                #             if not os.path.isdir(self._store_folder):
-                #                 os.makedirs(self._store_folder)
-            with self._plant_id_lock:
-                self._plant_id = plan_id
-                self._login = True
-                self._LOGGER.info('%s Plant ID is %s', self, self._plant_id)
-        return
+
+    def _fetch_max_temp(self):
+        """Fetch maximum temperature"""
+        url = f"{self._url}/api/v2/velis/sePlantData/{self._plant_id}/plantSettings?appId=com.remotethermo.velis"
+        for attempt in range(5):
+            try:
+                resp = self._session.get(
+                    url,
+                    auth=self._token,
+                    timeout=self._timeout_long,
+                    verify=True)
+            except requests.exceptions.RequestException as ex:
+                self._LOGGER.warning('%s Could not fetch maximum: %s', self, ex)
+                time.sleep(5)
+                continue
+            else:
+
+                if resp.status_code != 200 or not self._json_validator(resp.json()):
+                    self._LOGGER.warning('%s Could not fetch maximum', self)
+                    time.sleep(5)
+                    continue
+
+                try:
+                    self._max_temp_boiler = resp.json()["SeMaxSetpointTemperature"]
+                    self._max_temp_green = resp.json()["SeMaxGreenSetpointTemperature"]
+
+                    if self._store_file:
+                        if not os.path.isdir(self._store_folder):
+                            os.makedirs(self._store_folder)
+                        store_file = 'lydos_max_temperatures.json'
+                        store_file_path = os.path.join(self._store_folder, store_file)
+                        with open(store_file_path, 'w') as ariston_fetched:
+                            json.dump(resp.json(), ariston_fetched)
+                    break
+
+                except Exception:
+                    self._max_temp_boiler = 75
+                    continue
 
     def _set_sensors(self, request_type=""):
 
