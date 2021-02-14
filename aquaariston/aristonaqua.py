@@ -67,7 +67,7 @@ class AquaAristonHandler:
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     """
 
-    _VERSION = "1.0.29"
+    _VERSION = "1.0.30"
 
     _LOGGER = logging.getLogger(__name__)
     _LEVEL_CRITICAL = "CRITICAL"
@@ -369,9 +369,14 @@ class AquaAristonHandler:
         self._console_handler.setFormatter(self._formatter)
         self._LOGGER.addHandler(self._console_handler)
 
-        self._ariston_sensors = {}
+        self._available = False
+        self._dhw_available = False
+        self._changing_data = False
+
+        self._ariston_sensors = dict()
+        self._subscribed_sensors_old = dict()
         for sensor_all in self._SENSOR_LIST:
-            self._ariston_sensors[sensor_all] = {}
+            self._ariston_sensors[sensor_all] = dict()
             self._ariston_sensors[sensor_all][self._VALUE] = None
             self._ariston_sensors[sensor_all][self._UNITS] = None
             if sensor_all in {
@@ -393,6 +398,7 @@ class AquaAristonHandler:
                 self._PARAM_ENERGY_USE_YEAR_PERIODS,
             }:
                 self._ariston_sensors[sensor_all][self._UNITS] = "kWh"
+            self._subscribed_sensors_old[sensor_all] = copy.deepcopy(self._ariston_sensors[sensor_all])
 
         self._boiler_type = boiler_type
         if boiler_type == self._TYPE_VELIS:
@@ -485,6 +491,16 @@ class AquaAristonHandler:
         }
         self._store_file = store_file
 
+        self._subscribed = list()
+        self._subscribed_args = list()
+        self._subscribed_kwargs = list()
+        self._subscribed_thread = list()
+
+        self._subscribed2 = list()
+        self._subscribed2_args = list()
+        self._subscribed2_kwargs = list()
+        self._subscribed2_thread = list()
+
         self._temp_lock = threading.Lock()
         self._token_lock = threading.Lock()
         self._token = None
@@ -542,6 +558,8 @@ class AquaAristonHandler:
 
         self._started = False
 
+        self._LOGGER.info("API initiated")
+
         if self._boiler_type == self._TYPE_VELIS:
             # presumably it is Velis, which uses showers instead of temperatures
             self._valid_requests[self._REQUEST_GET_SHOWERS] = True
@@ -581,20 +599,113 @@ class AquaAristonHandler:
         except KeyError:
             return False
 
+    def subscribe_sensors(self, func, *args, **kwargs):
+        """
+        Subscribe to change of sensors value in:
+            - sensor_values
+
+        Function will be called when sensors' values are being changed.
+        Actual changed values are being returned as a dictionary in a first argument.
+        """
+        self._subscribed.append(func)
+        self._subscribed_args.append(args)
+        self._subscribed_kwargs.append(kwargs)
+
+    def subscribe_statuses(self, func, *args, **kwargs):
+        """
+        Subscribe to change of API statuses such as:
+            - available
+            - dhw_available
+            - setting_data
+
+        Called function will receive same data as sent and shall also include
+        first argument, which will be a list of changed properties.
+        """
+        self._subscribed2.append(func)
+        self._subscribed2_args.append(args)
+        self._subscribed2_kwargs.append(kwargs)
+
+    def _subscribers_sensors_inform(self):
+        """
+        Inform subscribers about changed sensors
+        first argument is a dictionary of changed sensors
+        """
+
+        changed_data = dict()
+
+        for sensor in self._SENSOR_LIST:
+            if sensor in self._ariston_sensors:
+                if self._ariston_sensors[sensor][self._VALUE] != self._subscribed_sensors_old[sensor][self._VALUE] or \
+                    self._ariston_sensors[sensor][self._UNITS] != self._subscribed_sensors_old[sensor][self._UNITS]:
+                    
+                    if isinstance(self._ariston_sensors[sensor][self._VALUE], dict) and isinstance(self._subscribed_sensors_old[sensor][self._VALUE], dict):
+                        if self._ariston_sensors[sensor][self._VALUE] == {} or self._subscribed_sensors_old[sensor][self._VALUE] == {}:
+                            inform = True
+                        elif len(self._ariston_sensors[sensor][self._VALUE]) != len(self._subscribed_sensors_old[sensor][self._VALUE]):
+                            inform = True
+                        else:
+                            inform = False
+                            for key, value in self._ariston_sensors[sensor][self._VALUE].items():
+                                if self._subscribed_sensors_old[sensor][self._VALUE][key] != value:
+                                    inform = True
+                    else:
+                        inform = True
+
+                    if inform:
+                        self._subscribed_sensors_old[sensor] = copy.deepcopy(self._ariston_sensors[sensor])
+                        changed_data[sensor] = self._ariston_sensors[sensor]
+
+        if changed_data:
+            for iteration in range(len(self._subscribed)):
+                self._subscribed_thread = threading.Timer(
+                    0, self._subscribed[iteration], args=(changed_data, *self._subscribed_args[iteration]), kwargs=self._subscribed_kwargs[iteration])
+                self._subscribed_thread.start()
+
+    def _subscribers_statuses_inform(self, changed_data):
+        """Inform subscribers about changed API statuses"""
+        for iteration in range(len(self._subscribed2)):
+            self._subscribed2_thread = threading.Timer(
+                0, self._subscribed2[iteration], args=(changed_data, *self._subscribed2_args[iteration]), kwargs=self._subscribed2_kwargs[iteration])
+            self._subscribed2_thread.start()
+
+    def _set_statuses(self):
+        """Set availablility states"""
+        old_available = self._available
+        old_dhw_available = self._dhw_available
+        old_changing = self._changing_data
+
+        changed_data = dict()
+
+        self._available = self._errors <= self._MAX_ERRORS and self._login and self._plant_id != "" and self._ariston_main_data != {}
+
+        if self._boiler_type == self._TYPE_VELIS and not self._ariston_shower_data:
+            self._dhw_available = False
+        else:
+            self._dhw_available = self._available
+
+        self._changing_data = self._set_param != {}
+
+        if old_available != self._available:
+            changed_data['available'] = self._available
+
+        if old_dhw_available != self._dhw_available:
+            changed_data['dhw_available'] = self._dhw_available
+
+        if old_changing != self._changing_data:
+            changed_data['setting_data'] = self._changing_data
+
+        if changed_data:
+            self._subscribers_statuses_inform(changed_data)
+
     @property
     def available(self) -> bool:
         """Return if Aristons's API is responding."""
-        if not self._login or not self._plant_id or not self._ariston_main_data:
-            return False
-        return self._errors <= self._MAX_ERRORS
+        return self._available
 
     @property
     def dhw_available(self) -> bool:
         """Return if Aristons's DHW is responding."""
-        if self._boiler_type == self._TYPE_VELIS:
-            if not self._ariston_shower_data:
-                return False
-        return self.available
+        return self._dhw_available
 
     @property
     def temperature_mode(self) -> str:
@@ -630,7 +741,7 @@ class AquaAristonHandler:
     @property
     def setting_data(self) -> bool:
         """Return if setting of data is in progress."""
-        return self._set_param != {}
+        return self._changing_data
 
     @property
     def supported_sensors_get(self) -> set:
@@ -893,6 +1004,8 @@ class AquaAristonHandler:
                     continue
 
     def _set_sensors(self, request_type=""):
+
+        self._LOGGER.info('Setting sensors based on request %s', request_type)
 
         if request_type == self._REQUEST_GET_MAIN:
             
@@ -1171,6 +1284,9 @@ class AquaAristonHandler:
 
             except KeyError:
                 continue
+        
+        self._subscribers_sensors_inform()
+
 
     def _store_data(self, resp, request_type=""):
         """Store received dictionary"""
@@ -1199,9 +1315,11 @@ class AquaAristonHandler:
                 self._ariston_main_data = copy.deepcopy(resp.json())
             except copy.error:
                 self._ariston_main_data = {}
+                self._set_statuses()
                 self._LOGGER.warning("%s Invalid data received for Main, not JSON", self)
                 raise Exception("Corruption at reading data of the request {}".format(request_type))
 
+            self._set_statuses()
             self._set_sensors(request_type)
             self._set_sensors(self._REQUEST_GET_VERSION)
             self._set_visible_data()
@@ -1261,9 +1379,11 @@ class AquaAristonHandler:
                 self._ariston_shower_data = copy.deepcopy(resp.json())
             except copy.error:
                 self._ariston_shower_data = {}
+                self._set_statuses()
                 self._LOGGER.warning("%s Invalid data received for showers, not JSON", self)
                 raise Exception("Corruption at reading data of the request {}".format(request_type))
 
+            self._set_statuses()
             self._set_sensors(request_type)
             self._set_visible_data()
 
@@ -1377,7 +1497,7 @@ class AquaAristonHandler:
                 # work as usual
                 retry_in = self._timer_between_param_delay
                 self._timer_between_set = self._timer_between_param_delay + self._HTTP_TIMER_SET_WAIT
-                self._LOGGER.debug('%s Fetching data in %s seconds', self, retry_in)
+                self._LOGGER.debug('%s Fetching next data in %s seconds', self, retry_in)
             self._timer_periodic_read.cancel()
             if self._started:
                 self._timer_periodic_read = threading.Timer(retry_in, self._queue_get_data)
@@ -1473,34 +1593,31 @@ class AquaAristonHandler:
             with self._lock:
                 was_online = self.available
                 self._errors += 1
+                self._set_statuses()
                 self._LOGGER.warning("Connection errors: %i", self._errors)
                 offline = not self.available
             if offline and was_online:
-                with self._plant_id_lock:
-                    self._login = False
-                self._ariston_main_data = {}
-                self._ariston_error_data = []
-                self._ariston_cleanse_data = {}
-                self._ariston_time_prog_data = {}
-                self._ariston_use_data = {}
-                self._ariston_shower_data = {}
+                self._clear_data()
                 self._LOGGER.error("Ariston is offline: Too many errors")
-
+                
     def _no_error_detected(self, request_type):
         """No errors detected"""
         if request_type in {self._REQUEST_GET_MAIN, self._REQUEST_SET_MAIN}:
             with self._lock:
                 was_offline = not self.available
                 self._errors = 0
+                self._set_statuses()
             if was_offline:
                 self._LOGGER.info("No more errors")
-
+                
     def _control_availability_state(self, request_type=""):
         """Control component availability"""
         try:
             result_ok = self._get_http_data(request_type)
-        except Exception:
+            self._LOGGER.info(f"ariston action ok for {request_type}")
+        except Exception as ex:
             self._error_detected(request_type)
+            self._LOGGER.warning(f"ariston action nok for {request_type}: {ex}")
             return
         if result_ok:
             self._no_error_detected(request_type)
@@ -1873,6 +1990,7 @@ class AquaAristonHandler:
                 if not self._set_scheduled:
                     # no more retries or no changes, no need to keep any changed data
                     self._set_param = {}
+                    self._set_statuses()
 
                 if self._store_file:
                     if not os.path.isdir(self._store_folder):
@@ -1901,6 +2019,7 @@ class AquaAristonHandler:
                     else:
                         # no more retries, no need to keep changed data
                         self._set_param = {}
+                        self._set_statuses()
 
                         for request_item in self._set_param_group:
                             self._set_param_group[request_item] = False
@@ -2044,6 +2163,8 @@ class AquaAristonHandler:
 
                 self._set_visible_data()
 
+                self._set_statuses()
+
                 self._set_new_data_pending = True
                 # set after short delay to not affect switch or climate or water_heater
                 self._timer_set_delay.cancel()
@@ -2059,11 +2180,26 @@ class AquaAristonHandler:
             self._LOGGER.warning("%s No valid data fetched from server to set changes", self)
             raise Exception("Connection data error, problem to set data")
 
+    def _clear_data(self):
+        with self._plant_id_lock:
+            self._login = False
+        self._ariston_main_data = {}
+        self._ariston_error_data = []
+        self._ariston_cleanse_data = {}
+        self._ariston_time_prog_data = {}
+        self._ariston_use_data = {}
+        self._ariston_shower_data = {}
+        for sensor in self._SENSOR_LIST:
+            if sensor in self._ariston_sensors:
+                self._ariston_sensors[sensor][self._VALUE] = None
+        self._subscribers_sensors_inform()
+
     def start(self) -> None:
         """Start communication with the server."""
         self._timer_periodic_read = threading.Timer(1, self._queue_get_data)
         self._timer_periodic_read.start()
         self._started = True
+        self._LOGGER.info("Connection started")
 
     def stop(self) -> None:
         """Stop communication with the server."""
@@ -2085,4 +2221,6 @@ class AquaAristonHandler:
             except requests.exceptions.RequestException:
                 self._LOGGER.warning('%s Logout error', self)
         self._session.close()
-        self._login = False
+        self._clear_data()
+        self._set_statuses()
+        self._LOGGER.info("Connection stopped")
