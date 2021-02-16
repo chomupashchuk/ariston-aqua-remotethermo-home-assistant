@@ -21,7 +21,7 @@ aquaariston:
 Where `type` is one of:
 - `lydos`
 - `lydos_hybrid`
-- `velis`/
+- `velis`\\
 Order of Installation:
 - Copy data to `custom_components`;
 - Restart Home Assistant to find the component;
