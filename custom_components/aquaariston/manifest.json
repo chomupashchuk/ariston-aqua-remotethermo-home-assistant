@@ -2,6 +2,7 @@
   "domain": "aquaariston",
   "name": "AquaAriston",
   "documentation": "https://github.com/chomupashchuk/ariston-aqua-remotethermo-home-assistant",
+  "issue_tracker": "https://github.com/chomupashchuk/ariston-aqua-remotethermo-home-assistant/issues",
   "requirements": [],
   "dependencies": [],
   "codeowners": ["@chomupashchuk"],
