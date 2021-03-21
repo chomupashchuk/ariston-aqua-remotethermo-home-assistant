@@ -1,0 +1,5 @@
+{
+    "name": "Ariston Aqua NET",
+    "domains": ["aquaariston", "sensor", "wather_heater", "switch", "binary_sensor"],
+    "render_readme": true
+}

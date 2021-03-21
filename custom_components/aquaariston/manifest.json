@@ -1,0 +1,9 @@
+{
+  "domain": "aquaariston",
+  "name": "AquaAriston",
+  "documentation": "https://github.com/chomupashchuk/ariston-aqua-remotethermo-home-assistant",
+  "requirements": [],
+  "dependencies": [],
+  "codeowners": ["@chomupashchuk"],
+  "version": "1.0.31"
+}
