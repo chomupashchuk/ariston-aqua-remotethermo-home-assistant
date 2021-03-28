@@ -35,7 +35,7 @@ aquaariston:
   password: !secret ariston_password
   type: "lydos"
   logging: "WARNING"                  # indicates logging level ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "NOTSET"). Default is "DEBUG"
-  path: "/home/homeassistant/.homeassistant/aqua_http_data" # Forces new path for storing files. SET NEW VALUES IF "/config" IS NOT CORRECT
+  #path: "/home/homeassistant/.homeassistant/aqua_http_data" # Forces new path for storing files. SET NEW VALUES IF "/config" IS NOT CORRECT
   polling: 1.2                        # indicates relative time for requests waiting. Increase in case of timeouts. Default is 1.0
   store_config_files: true            # indicates if to store API data in a folder
   switches:
