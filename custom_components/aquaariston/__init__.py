@@ -31,6 +31,8 @@ from .const import (
     CONF_STORE_CONFIG_FILES,
     CONF_TYPE,
     CONF_POLLING,
+    CONF_LOG,
+    CONF_PATH,
     VALUE,
     PARAM_MODE,
     PARAM_ECO,
@@ -71,6 +73,10 @@ ARISTONAQUA_SCHEMA = vol.Schema(
         vol.Optional(CONF_POLLING, default=DEFAULT_POLLING): vol.All(
             float, vol.Range(min=1, max=5)
         ),
+        vol.Optional(CONF_LOG, default="DEBUG"): vol.In(
+            ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "NOTSET"]
+        ),
+        vol.Optional(CONF_PATH, default="/config/aquaariston_http_data"): cv.string,
     }
 )
 
@@ -102,7 +108,9 @@ class AristonAquaChecker:
         binary_sensors,
         switches,
         boiler_type,
-        polling
+        polling,
+        logging,
+        path
     ):
         """Initialize."""
 
@@ -131,8 +139,8 @@ class AristonAquaChecker:
             sensors=list_of_sensors,
             store_file=store_file,
             polling=polling,
-            logging_level="DEBUG",
-            #store_folder="/config/aquaariston_http_data",
+            logging_level=logging,
+            store_folder=path,
         )
 
 
@@ -152,6 +160,8 @@ def setup(hass, config):
         switches = device.get(CONF_SWITCHES)
         boiler_type = device.get(CONF_TYPE)
         polling = device.get(CONF_POLLING)
+        logging = device.get(CONF_LOG)
+        path = device.get(CONF_PATH)
 
         api = AristonAquaChecker(
             hass=hass,
@@ -164,7 +174,9 @@ def setup(hass, config):
             binary_sensors=binary_sensors,
             switches=switches,
             boiler_type=boiler_type,
-            polling=polling
+            polling=polling,
+            logging=logging,
+            path=path
         )
 
         api_list.append(api)

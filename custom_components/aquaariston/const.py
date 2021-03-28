@@ -45,6 +45,8 @@ CONF_MAX_RETRIES = "max_retries"
 CONF_STORE_CONFIG_FILES = "store_config_files"
 CONF_TYPE = "type"
 CONF_POLLING = "polling"
+CONF_LOG = "logging"
+CONF_PATH = "path"
 
 VALUE = "value"
 UNITS = "units"
