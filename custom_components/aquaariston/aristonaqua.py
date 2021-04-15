@@ -708,6 +708,11 @@ class AquaAristonHandler:
         return cls._VERSION, cls._SENSOR_LIST, cls._SENSOR_SET_LIST
 
     @property
+    def plant_id(self) -> str:
+        """Return the unique plant_id."""
+        return self._plant_id
+
+    @property
     def available(self) -> bool:
         """Return if Aristons's API is responding."""
         return self._available
