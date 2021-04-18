@@ -19,9 +19,9 @@ aquaariston:
   type: "lydos"
 ```
 Where `type` is one of:
-- `lydos`
-- `lydos_hybrid`
-- `velis`  <br/>
+- `lydos` - use it for Lydos or Velis (temeprature based);
+- `lydos_hybrid` - use it for Lydos Hybrid;
+- `velis` - use it for Velis, which uses number of showers instead of temepartures; <br/>
 **Order of Installation:**
 - Copy data to `custom_components`;
 - Restart Home Assistant to find the component;
