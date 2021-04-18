@@ -55,6 +55,11 @@ class AristonAquaWaterHeater(WaterHeaterEntity):
         self._api = device.api.ariston_api
 
     @property
+    def unique_id(self):
+        """Return the unique id."""
+        return f"{self._api.plant_id}"
+
+    @property
     def name(self):
         """Return the name of the Climate device."""
         return self._name

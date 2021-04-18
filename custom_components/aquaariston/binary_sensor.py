@@ -79,6 +79,11 @@ class AristonAquaBinarySensor(BinarySensorEntity):
         self._state = None
 
     @property
+    def unique_id(self):
+        """Return the unique id."""
+        return f"{self._api.plant_id}-{self._sensor_type}"
+
+    @property
     def device_state_attributes(self):
         """Return the state attributes."""
         return self._attrs
