@@ -56,8 +56,8 @@ class AristonAquaWaterHeater(WaterHeaterEntity):
 
     @property
     def unique_id(self):
-        """Return the unique id."""
-        return f"{self._api.plant_id}"
+        """Return the unique ID for this thermostat."""
+        return f"{self._name}-water_heater"
 
     @property
     def name(self):
@@ -77,11 +77,6 @@ class AristonAquaWaterHeater(WaterHeaterEntity):
             return "mdi:water-pump"
         else:
             return "mdi:water-pump-off"
-
-    @property
-    def unique_id(self) -> str:
-        """Return the unique ID for this thermostat."""
-        return "_".join([self._name, "water_heater", DOMAIN])
 
     @property
     def should_poll(self):

@@ -54,7 +54,7 @@ class AristonAquaSwitch(SwitchEntity):
     @property
     def unique_id(self):
         """Return the unique id."""
-        return f"{self._api.plant_id}-{self._switch_type}"
+        return f"{self._name}-{self._switch_type}"
 
     @property
     def should_poll(self):

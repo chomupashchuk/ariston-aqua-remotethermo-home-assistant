@@ -123,7 +123,7 @@ class AristonAquaSensor(Entity):
     @property
     def unique_id(self):
         """Return the unique id."""
-        return f"{self._api.plant_id}-{self._sensor_type}"
+        return f"{self._name}-{self._sensor_type}"
 
     @property
     def name(self):
