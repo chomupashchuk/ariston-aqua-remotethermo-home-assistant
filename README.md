@@ -1,3 +1,6 @@
+# DROPPING SUPPORT OF THIS INTEGRATION
+This integration was created based on either temporary access to others boilers or providing me with required data. I do not have a boiler which supports this specific integration and it complicates troubleshooting and maintenance a lot (constantly asking to provide data and if it is not enough then ask again and again with descriptions of steps to be taken). To me it feels like I have to constantly ask for help even thogh features and bug fixes are for someone else. It takes a lot of my time and I have no gain from it in any way (no competence build up, no profits, it is no longer interesting for me).
+
 # Aqua Ariston NET remotethermo integration
 Thin integration is Aqua Ariston NET.
 You are free to modify and distribute it. It is distributed 'as is' with no liability for possible damage.
