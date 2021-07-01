@@ -67,7 +67,7 @@ class AquaAristonHandler:
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     """
 
-    _VERSION = "1.0.37"
+    _VERSION = "1.0.38"
 
     _LOGGER = logging.getLogger(__name__)
     _LEVEL_CRITICAL = "CRITICAL"
