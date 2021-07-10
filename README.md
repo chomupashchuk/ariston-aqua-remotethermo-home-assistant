@@ -67,6 +67,8 @@ aquaariston:
     - showers                         # estimated amount of average showers
     - temperature_mode                # indicates if required temeparture is based on required temperature or required showers
     - time_program                    # time program schedule
+  selector:
+    - mode                            # boiler mode selector
 ```
 
 ## Services

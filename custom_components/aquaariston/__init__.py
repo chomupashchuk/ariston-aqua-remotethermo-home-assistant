@@ -6,6 +6,7 @@ import voluptuous as vol
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR
 from homeassistant.components.sensor import DOMAIN as SENSOR
 from homeassistant.components.switch import DOMAIN as SWITCH
+from homeassistant.components.select import DOMAIN as SELECT
 from homeassistant.components.water_heater import DOMAIN as WATER_HEATER
 from homeassistant.const import (
     ATTR_ENTITY_ID,
@@ -14,6 +15,7 @@ from homeassistant.const import (
     CONF_PASSWORD,
     CONF_SENSORS,
     CONF_SWITCHES,
+    CONF_SELECTOR,
     CONF_USERNAME,
 )
 from homeassistant.helpers import discovery
@@ -48,6 +50,7 @@ from .const import (
 )
 from .sensor import SENSORS
 from .switch import SWITCHES
+from .select import SELECTS
 
 DEFAULT_NAME = "Aqua Ariston"
 DEFAULT_MAX_RETRIES = 5
@@ -69,6 +72,7 @@ ARISTONAQUA_SCHEMA = vol.Schema(
             int, vol.Range(min=1, max=65535)
         ),
         vol.Optional(CONF_SWITCHES): vol.All(cv.ensure_list, [vol.In(SWITCHES)]),
+        vol.Optional(CONF_SELECTOR): vol.All(cv.ensure_list, [vol.In(SELECTS)]),
         vol.Optional(CONF_STORE_CONFIG_FILES, default=False): cv.boolean,
         vol.Optional(CONF_POLLING, default=DEFAULT_POLLING): vol.All(
             float, vol.Range(min=1, max=5)
@@ -107,6 +111,7 @@ class AristonAquaChecker:
         sensors,
         binary_sensors,
         switches,
+        selects,
         boiler_type,
         polling,
         logging,
@@ -124,8 +129,10 @@ class AristonAquaChecker:
             binary_sensors = list()
         if not switches:
             switches = list()
+        if not selects:
+            selects = list()
 
-        list_of_sensors = list({*sensors, *binary_sensors, *switches})
+        list_of_sensors = list({*sensors, *binary_sensors, *switches, *selects})
         """ Some sensors or switches are not part of API """
         if PARAM_CHANGING_DATA in list_of_sensors:
             list_of_sensors.remove(PARAM_CHANGING_DATA)
@@ -158,6 +165,7 @@ def setup(hass, config):
         binary_sensors = device.get(CONF_BINARY_SENSORS)
         sensors = device.get(CONF_SENSORS)
         switches = device.get(CONF_SWITCHES)
+        selects = device.get(CONF_SELECTOR)
         boiler_type = device.get(CONF_TYPE)
         polling = device.get(CONF_POLLING)
         logging = device.get(CONF_LOG)
@@ -173,6 +181,7 @@ def setup(hass, config):
             sensors=sensors,
             binary_sensors=binary_sensors,
             switches=switches,
+            selects=selects,
             boiler_type=boiler_type,
             polling=polling,
             logging=logging,
@@ -194,6 +203,15 @@ def setup(hass, config):
                 SWITCH,
                 DOMAIN,
                 {CONF_NAME: name, CONF_SWITCHES: switches},
+                config,
+            )
+
+        if selects:
+            discovery.load_platform(
+                hass,
+                SELECT,
+                DOMAIN,
+                {CONF_NAME: name, CONF_SELECTOR: selects},
                 config,
             )
 
