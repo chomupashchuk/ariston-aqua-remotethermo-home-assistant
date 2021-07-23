@@ -35,6 +35,7 @@ from .const import (
     CONF_POLLING,
     CONF_LOG,
     CONF_PATH,
+    CONF_GW,
     VALUE,
     PARAM_MODE,
     PARAM_ECO,
@@ -63,6 +64,7 @@ ARISTONAQUA_SCHEMA = vol.Schema(
         vol.Required(CONF_USERNAME): cv.string,
         vol.Required(CONF_PASSWORD): cv.string,
         vol.Required(CONF_TYPE):  vol.In([TYPE_LYDOS, TYPE_LYDOS_HYBRID, TYPE_VELIS]),
+        vol.Optional(CONF_GW, default=""): cv.string,
         vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
         vol.Optional(CONF_BINARY_SENSORS): vol.All(
             cv.ensure_list, [vol.In(BINARY_SENSORS)]
@@ -115,7 +117,8 @@ class AristonAquaChecker:
         boiler_type,
         polling,
         logging,
-        path
+        path,
+        gw
     ):
         """Initialize."""
 
@@ -148,6 +151,7 @@ class AristonAquaChecker:
             polling=polling,
             logging_level=logging,
             store_folder=path,
+            gw=gw
         )
 
 
@@ -157,6 +161,8 @@ def setup(hass, config):
         return True
     hass.data.setdefault(DATA_ARISTONAQUA, {DEVICES: {}, WATER_HEATERS: []})
     api_list = []
+    dev_gateways = set()
+    dev_names = set()
     for device in config[DOMAIN]:
         name = device[CONF_NAME]
         username = device[CONF_USERNAME]
@@ -170,6 +176,15 @@ def setup(hass, config):
         polling = device.get(CONF_POLLING)
         logging = device.get(CONF_LOG)
         path = device.get(CONF_PATH)
+        gw = device.get(CONF_GW)
+        if gw in dev_gateways:
+            _LOGGER.error(f"Duplicate value of 'gw': {gw}")
+            raise Exception(f"Duplicate value of 'gw': {gw}")
+        if name in dev_names:
+            _LOGGER.error(f"Duplicate value of 'name': {name}")
+            raise Exception(f"Duplicate value of 'name': {name}")
+        dev_gateways.add(gw)
+        dev_names.add(name)
 
         api = AristonAquaChecker(
             hass=hass,
@@ -185,7 +200,8 @@ def setup(hass, config):
             boiler_type=boiler_type,
             polling=polling,
             logging=logging,
-            path=path
+            path=path,
+            gw=gw,
         )
 
         api_list.append(api)
@@ -228,6 +244,11 @@ def setup(hass, config):
             discovery.load_platform(
                 hass, SENSOR, DOMAIN, {CONF_NAME: name, CONF_SENSORS: sensors}, config
             )
+
+    gateways_txt = ", ".join(dev_gateways)
+    names_txt = ", ".join(dev_names)
+    _LOGGER.info(f"All gateways: {gateways_txt}")
+    _LOGGER.info(f"All names: {names_txt}")
 
     def set_ariston_aqua_data(call):
         """Handle the service call to set the data."""

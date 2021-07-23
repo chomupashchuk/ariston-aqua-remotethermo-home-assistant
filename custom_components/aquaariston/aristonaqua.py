@@ -4,6 +4,7 @@ import json
 import logging
 import math
 import os
+import re
 import threading
 import time
 from typing import Union
@@ -67,7 +68,7 @@ class AquaAristonHandler:
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     """
 
-    _VERSION = "1.0.38"
+    _VERSION = "1.0.40"
 
     _LOGGER = logging.getLogger(__name__)
     _LEVEL_CRITICAL = "CRITICAL"
@@ -319,6 +320,7 @@ class AquaAristonHandler:
                  store_file: bool = False,
                  store_folder: str = "",
                  logging_level: str = _LEVEL_NOTSET,
+                 gw: str = "",
                  ) -> None:
         """
         Initialize API.
@@ -372,6 +374,8 @@ class AquaAristonHandler:
         self._available = False
         self._dhw_available = False
         self._changing_data = False
+
+        self._default_gw = gw
 
         self._ariston_sensors = dict()
         self._subscribed_sensors_old = dict()
@@ -891,6 +895,55 @@ class AquaAristonHandler:
                 self._LOGGER.info("%s check showers exception", self)
         return
 
+    def _get_plant_id(self, resp):
+        plant_id = ""
+        if resp.url.startswith(self._url + "/PlantDashboard/Index/") or resp.url.startswith(
+                self._url + "/PlantManagement/Index/") or resp.url.startswith(
+                self._url + "/PlantPreference/Index/") or resp.url.startswith(
+                self._url + "/Error/Active/") or resp.url.startswith(
+                self._url + "/PlantGuest/Index/") or resp.url.startswith(
+                self._url + "/TimeProg/Index/"):
+                plant_id = resp.url.split("/")[5]
+        elif resp.url.startswith(self._url + "/PlantData/Index/") or resp.url.startswith(
+                self._url + "/UserData/Index/"):
+                plant_id_attribute = resp.url.split("/")[5]
+                plant_id = plant_id_attribute.split("?")[0]
+        elif resp.url.startswith(self._url + "/Menu/User/Index/"):
+                plant_id = resp.url.split("/")[6]
+        else:
+            self._LOGGER.warning('%s Authentication login error', self)
+            raise Exception("Login parsing of URL failed")
+        if plant_id:
+            if self._default_gw:
+                # If GW is specified, it can differ from the default
+                url = self._url + "/PlantManagement/Index/" + plant_id
+                try:
+                    resp = self._session.get(
+                            url,
+                            auth=self._token,
+                            timeout=self._HTTP_TIMEOUT_LOGIN,
+                            verify=True)
+                except requests.exceptions.RequestException:
+                    self._LOGGER.warning('%s Checking gateways error', self)
+                    raise Exception("Checking gateways error")
+                if resp.status_code != 200:
+                    self._LOGGER.warning('%s Checking gateways error', self)
+                    raise Exception("Checking gateways error")
+                gateways = set()
+                for item in re.findall(r'"GwId":"[a-zA-Z0-9]+"', resp.text):
+                    detected_gw = item.replace('"GwId"', '').replace(':', '').replace('"', '').replace(' ', '')
+                    gateways.add(detected_gw)
+                gateways_txt = ", ".join(gateways)
+                if self._default_gw not in gateways:
+                    self._LOGGER.error(f'Gateway "{self._default_gw}" is not in the list of allowed gateways: {gateways_txt}')
+                    raise Exception(f'Gateway "{self._default_gw}" is not in the list of allowed gateways: {gateways_txt}')
+                else:
+                    self._LOGGER.info(f'Allowed gateways: {gateways_txt}')
+                plant_id = self._default_gw
+
+        return plant_id
+
+
     def _login_session(self):
         """Login to fetch Ariston Plant ID and confirm login"""
         if not self._login and self._started:
@@ -918,34 +971,18 @@ class AquaAristonHandler:
                         f.write(resp.text)
                 self._LOGGER.warning('%s Unexpected reply during login: %s', self, resp.status_code)
                 raise Exception("Login unexpected reply code")
-            if resp.url.startswith(self._url + "/PlantDashboard/Index/") or resp.url.startswith(
-                    self._url + "/PlantManagement/Index/") or resp.url.startswith(
-                    self._url + "/PlantPreference/Index/") or resp.url.startswith(
-                    self._url + "/Error/Active/") or resp.url.startswith(
-                    self._url + "/PlantGuest/Index/") or resp.url.startswith(
-                    self._url + "/TimeProg/Index/"):
-                plan_id = resp.url.split("/")[5]
-            elif resp.url.startswith(self._url + "/PlantData/Index/") or resp.url.startswith(
-                    self._url + "/UserData/Index/"):
-                plant_id_attribute = resp.url.split("/")[5]
-                plan_id = plant_id_attribute.split("?")[0]
-            elif resp.url.startswith(self._url + "/Menu/User/Index/"):
-                plan_id = resp.url.split("/")[6]
-            else:
-                self._LOGGER.warning('%s Authentication login error', self)
-                raise Exception("Login parsing of URL failed")
 
-            with self._plant_id_lock:
-                self._plant_id = plan_id
+            plant_id = self._get_plant_id(resp)  
 
-            # self._model_fetch()
-
-            if self._boiler_type == self._TYPE_LYDOS_HYBRID:
-                self._fetch_max_temp()
-
-            with self._plant_id_lock:
-                self._login = True
-                self._LOGGER.info('%s Plant ID is %s', self, self._plant_id)
+            if plant_id:
+                with self._plant_id_lock:
+                    self._plant_id = plant_id
+                # self._model_fetch()
+                if self._boiler_type == self._TYPE_LYDOS_HYBRID:
+                    self._fetch_max_temp()
+                with self._plant_id_lock:
+                    self._login = True
+                    self._LOGGER.info('%s Plant ID is %s', self, self._plant_id)
         return
 
     def _model_fetch(self):

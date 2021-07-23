@@ -71,6 +71,9 @@ aquaariston:
     - mode                            # boiler mode selector
 ```
 
+## Multiple boilers under one account setup
+Refer to `Multiple boilers under one account setup` section on https://github.com/chomupashchuk/ariston-remotethermo-home-assistant-v2 .
+
 ## Services
 `aquaariston.aqua_set_data` - Sets the requested data.
 

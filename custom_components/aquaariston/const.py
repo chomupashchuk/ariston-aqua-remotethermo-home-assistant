@@ -47,6 +47,7 @@ CONF_TYPE = "type"
 CONF_POLLING = "polling"
 CONF_LOG = "logging"
 CONF_PATH = "path"
+CONF_GW = "gw"
 
 VALUE = "value"
 UNITS = "units"
