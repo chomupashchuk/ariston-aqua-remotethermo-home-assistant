@@ -68,7 +68,7 @@ class AquaAristonHandler:
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     """
 
-    _VERSION = "1.0.40"
+    _VERSION = "1.0.41"
 
     _LOGGER = logging.getLogger(__name__)
     _LEVEL_CRITICAL = "CRITICAL"
@@ -376,6 +376,10 @@ class AquaAristonHandler:
         self._changing_data = False
 
         self._default_gw = gw
+        if self._default_gw:
+            self._gw_name = self._default_gw + '_'
+        else:
+            self._gw_name = ""
 
         self._ariston_sensors = dict()
         self._subscribed_sensors_old = dict()
@@ -577,7 +581,7 @@ class AquaAristonHandler:
         if self._store_file:
             if not os.path.isdir(self._store_folder):
                 os.makedirs(self._store_folder)
-            store_file = 'data_ariston_valid_requests.json'
+            store_file = self._gw_name + 'data_ariston_valid_requests.json'
             store_file_path = os.path.join(self._store_folder, store_file)
             with open(store_file_path, 'w') as ariston_fetched:
                 json.dump(self._valid_requests, ariston_fetched)
@@ -834,11 +838,11 @@ class AquaAristonHandler:
         return sensors_dictionary
 
     def _write_showers_temp(self):
-        if self._boiler_type == self._TYPE_VELIS:
+        if self._boiler_type == self._TYPE_VELIS and self._gw_name:
             with self._temp_lock:
                 if not os.path.isdir(self._store_folder):
                     os.makedirs(self._store_folder)
-                store_file = 'required_shower_temperature.json'
+                store_file = self._gw_name + 'required_shower_temperature.json'
                 store_file_path = os.path.join(self._store_folder, store_file)
                 with open(store_file_path, 'w') as req_temp:
                     json.dump({self._PARAM_REQUIRED_TEMPERATURE: self._showers_required_temp,
@@ -846,9 +850,9 @@ class AquaAristonHandler:
                                }, req_temp)
 
     def _read_showers_temp(self):
-        if self._boiler_type == self._TYPE_VELIS:
+        if self._boiler_type == self._TYPE_VELIS and self._gw_name:
             with self._temp_lock:
-                store_file = 'required_shower_temperature.json'
+                store_file = self._gw_name + 'required_shower_temperature.json'
                 store_file_path = os.path.join(self._store_folder, store_file)
                 try:
                     with open(store_file_path) as req_temp:
@@ -965,7 +969,7 @@ class AquaAristonHandler:
                 if self._store_file:
                     if not os.path.isdir(self._store_folder):
                         os.makedirs(self._store_folder)
-                    store_file = "data_ariston_login_" + str(resp.status_code) + "_error.txt"
+                    store_file = self._gw_name + "data_ariston_login_" + str(resp.status_code) + "_error.txt"
                     store_file_path = os.path.join(self._store_folder, store_file)
                     with open(store_file_path, "w") as f:
                         f.write(resp.text)
@@ -977,6 +981,7 @@ class AquaAristonHandler:
             if plant_id:
                 with self._plant_id_lock:
                     self._plant_id = plant_id
+                    self._gw_name = plant_id + '_'
                 # self._model_fetch()
                 if self._boiler_type == self._TYPE_LYDOS_HYBRID:
                     self._fetch_max_temp()
@@ -1001,7 +1006,7 @@ class AquaAristonHandler:
             if self._store_file:
                 if not os.path.isdir(self._store_folder):
                     os.makedirs(self._store_folder)
-                store_file = "data_ariston_model_" + str(resp.status_code) + "_error.txt"
+                store_file = self._gw_name + "data_ariston_model_" + str(resp.status_code) + "_error.txt"
                 store_file_path = os.path.join(self._store_folder, store_file)
                 with open(store_file_path, "w") as f:
                     f.write(resp.text)
@@ -1012,7 +1017,7 @@ class AquaAristonHandler:
                 if self._store_file:
                     if not os.path.isdir(self._store_folder):
                         os.makedirs(self._store_folder)
-                    store_file = 'data_ariston_model_data.json'
+                    store_file = self._gw_name + 'data_ariston_model_data.json'
                     store_file_path = os.path.join(self._store_folder, store_file)
                     with open(store_file_path, 'w') as ariston_fetched:
                         json.dump(resp.json(), ariston_fetched)
@@ -1045,7 +1050,7 @@ class AquaAristonHandler:
                     if self._store_file:
                         if not os.path.isdir(self._store_folder):
                             os.makedirs(self._store_folder)
-                        store_file = 'lydos_max_temperatures.json'
+                        store_file = self._gw_name + 'lydos_max_temperatures.json'
                         store_file_path = os.path.join(self._store_folder, store_file)
                         with open(store_file_path, 'w') as ariston_fetched:
                             json.dump(resp.json(), ariston_fetched)
@@ -1346,7 +1351,7 @@ class AquaAristonHandler:
             if self._store_file:
                 if not os.path.isdir(self._store_folder):
                     os.makedirs(self._store_folder)
-                store_file = "data_ariston" + request_type + "_" + str(resp.status_code) + "_error.txt"
+                store_file = self._gw_name + "data_ariston" + request_type + "_" + str(resp.status_code) + "_error.txt"
                 store_file_path = os.path.join(self._store_folder, store_file)
                 with open(store_file_path, "w") as f:
                     f.write(resp.text)
@@ -1356,7 +1361,7 @@ class AquaAristonHandler:
             if self._store_file:
                 if not os.path.isdir(self._store_folder):
                     os.makedirs(self._store_folder)
-                store_file = "data_ariston" + request_type + "_non_json_error.txt"
+                store_file = self._gw_name + "data_ariston" + request_type + "_non_json_error.txt"
                 store_file_path = os.path.join(self._store_folder, store_file)
                 with open(store_file_path, "w") as f:
                     f.write(resp.text)
@@ -1454,7 +1459,7 @@ class AquaAristonHandler:
         if self._store_file:
             if not os.path.isdir(self._store_folder):
                 os.makedirs(self._store_folder)
-            store_file = 'data_ariston' + request_type + '.json'
+            store_file = self._gw_name + 'data_ariston' + request_type + '.json'
             store_file_path = os.path.join(self._store_folder, store_file)
             with open(store_file_path, 'w') as ariston_fetched:
                 if request_type == self._REQUEST_GET_MAIN:
@@ -1471,7 +1476,7 @@ class AquaAristonHandler:
                     json.dump(self._ariston_shower_data, ariston_fetched)
                 elif request_type == self._REQUEST_GET_VERSION:
                     ariston_fetched.write(self._version)
-            store_file = 'data_ariston_timers.json'
+            store_file = self._gw_name + 'data_ariston_timers.json'
             store_file_path = os.path.join(self._store_folder, store_file)
             with open(store_file_path, 'w') as ariston_fetched:
                 json.dump([self._set_time_start, self._set_time_end, self._get_time_start, self._get_time_end],
@@ -1628,7 +1633,7 @@ class AquaAristonHandler:
             if self._store_file:
                 if not os.path.isdir(self._store_folder):
                     os.makedirs(self._store_folder)
-                store_file = 'data_ariston_all_set_get.json'
+                store_file = self._gw_name + 'data_ariston_all_set_get.json'
                 store_file_path = os.path.join(self._store_folder, store_file)
                 with open(store_file_path, 'w') as ariston_fetched:
                     json.dump(self._set_param_group, ariston_fetched)
@@ -1682,15 +1687,15 @@ class AquaAristonHandler:
             if self._store_file:
                 if not os.path.isdir(self._store_folder):
                     os.makedirs(self._store_folder)
-                store_file = 'data_ariston' + request_type + '.json'
+                store_file = self._gw_name + 'data_ariston' + request_type + '.json'
                 store_file_path = os.path.join(self._store_folder, store_file)
                 with open(store_file_path, 'w') as ariston_fetched:
                     json.dump(set_data, ariston_fetched)
-                store_file = 'data_ariston_all_set.json'
+                store_file = self._gw_name + 'data_ariston_all_set.json'
                 store_file_path = os.path.join(self._store_folder, store_file)
                 with open(store_file_path, 'w') as ariston_fetched:
                     json.dump(self._set_param, ariston_fetched)
-                store_file = 'data_ariston_timers.json'
+                store_file = self._gw_name + 'data_ariston_timers.json'
                 store_file_path = os.path.join(self._store_folder, store_file)
                 with open(store_file_path, 'w') as ariston_fetched:
                     json.dump([self._set_time_start, self._set_time_end, self._get_time_start, self._get_time_end],
@@ -1737,7 +1742,7 @@ class AquaAristonHandler:
             if self._store_file:
                 if not os.path.isdir(self._store_folder):
                     os.makedirs(self._store_folder)
-                store_file = "data_ariston" + request_type + "_" + str(resp.status_code) + "_error.txt"
+                store_file = self._gw_name + "data_ariston" + request_type + "_" + str(resp.status_code) + "_error.txt"
                 store_file_path = os.path.join(self._store_folder, store_file)
                 with open(store_file_path, "w") as f:
                     f.write(resp.text)
@@ -2047,11 +2052,11 @@ class AquaAristonHandler:
                 if self._store_file:
                     if not os.path.isdir(self._store_folder):
                         os.makedirs(self._store_folder)
-                    store_file = 'data_ariston_all_set_get.json'
+                    store_file = self._gw_name + 'data_ariston_all_set_get.json'
                     store_file_path = os.path.join(self._store_folder, store_file)
                     with open(store_file_path, 'w') as ariston_fetched:
                         json.dump(self._set_param_group, ariston_fetched)
-                    store_file = 'data_ariston_all_set.json'
+                    store_file = self._gw_name + 'data_ariston_all_set.json'
                     store_file_path = os.path.join(self._store_folder, store_file)
                     with open(store_file_path, 'w') as ariston_fetched:
                         json.dump(self._set_param, ariston_fetched)
