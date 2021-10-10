@@ -68,7 +68,7 @@ class AquaAristonHandler:
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     """
 
-    _VERSION = "1.0.41"
+    _VERSION = "1.0.44"
 
     _LOGGER = logging.getLogger(__name__)
     _LEVEL_CRITICAL = "CRITICAL"
@@ -200,7 +200,7 @@ class AquaAristonHandler:
 
     _FILE_FOLDER = "aqua_http_logs"
     _ARISTON_URL = "https://www.ariston-net.remotethermo.com"
-    _GITHUB_LATEST_RELEASE = 'https://pypi.python.org/pypi/aristonremotethermo/json'
+    _GITHUB_LATEST_RELEASE = 'https://pypi.python.org/pypi/aquaaristonremotethermo/json'
 
     _VAL_TEMPERATURE = "temperature"
     _VAL_SHOWERS = "showers"
