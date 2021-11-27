@@ -116,7 +116,7 @@ class AristonAquaSensor(Entity):
         self._api = device.api.ariston_api
         self._sensor_type = sensor_type
         self._state = None
-        self._attrs = {}
+        self._attr_extra_state_attributes = {}
         self._icon = SENSORS[sensor_type][2]
         self._device_class = SENSORS[sensor_type][1]
 
@@ -140,11 +140,6 @@ class AristonAquaSensor(Entity):
         """Return device class."""
         return self._device_class
         
-    @property
-    def device_state_attributes(self):
-        """Return the state attributes."""
-        return self._attrs
-
     @property
     def icon(self):
         """Icon to use in the frontend, if any."""
@@ -210,27 +205,27 @@ class AristonAquaSensor(Entity):
             else:
                 self._state = None
 
-            self._attrs = {}
+            self._attr_extra_state_attributes = {}
             if self._sensor_type in {
                 PARAM_CLEANSE_TEMPERATURE,
                 PARAM_REQUIRED_TEMPERATURE,
                 PARAM_REQUIRED_SHOWERS,
             }:
                 try:
-                    self._attrs["Min"] = self._api.supported_sensors_set_values[
+                    self._attr_extra_state_attributes["Min"] = self._api.supported_sensors_set_values[
                         self._sensor_type
                     ]["min"]
-                    self._attrs["Max"] = self._api.supported_sensors_set_values[
+                    self._attr_extra_state_attributes["Max"] = self._api.supported_sensors_set_values[
                         self._sensor_type
                     ]["max"]
                 except KeyError:
-                    self._attrs["Min"] = None
-                    self._attrs["Max"] = None
+                    self._attr_extra_state_attributes["Min"] = None
+                    self._attr_extra_state_attributes["Max"] = None
 
             elif self._sensor_type == PARAM_ERRORS:
                 if self._api.sensor_values[PARAM_ERRORS][VALUE]:
                     for valid_error in self._api.sensor_values[PARAM_ERRORS][VALUE]:
-                        self._attrs[valid_error] = ""
+                        self._attr_extra_state_attributes[valid_error] = ""
 
             elif self._sensor_type in {
                 PARAM_ENERGY_USE_DAY,
@@ -239,11 +234,11 @@ class AristonAquaSensor(Entity):
                 PARAM_ENERGY_USE_YEAR,
             }:
                 list_param = self._sensor_type + "_periods"
-                self._attrs = self._api.sensor_values[list_param][VALUE]
+                self._attr_extra_state_attributes = self._api.sensor_values[list_param][VALUE]
 
             elif self._sensor_type == PARAM_TIME_PROGRAM:
                 if not self._api.sensor_values[self._sensor_type][VALUE] is None:
-                    self._attrs = self._api.sensor_values[self._sensor_type][VALUE]
+                    self._attr_extra_state_attributes = self._api.sensor_values[self._sensor_type][VALUE]
 
         except KeyError:
             _LOGGER.warning("Problem updating sensors for Ariston Aqua")
