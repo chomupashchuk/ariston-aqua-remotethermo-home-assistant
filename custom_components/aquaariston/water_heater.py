@@ -144,7 +144,7 @@ class AristonAquaWaterHeater(WaterHeaterEntity):
         return step
 
     @property
-    def device_state_attributes(self):
+    def extra_state_attributes(self):
         """Return the supported step of target temperature."""
         try:
             step = self._api.supported_sensors_set_values[PARAM_REQUIRED_TEMPERATURE]["step"]
