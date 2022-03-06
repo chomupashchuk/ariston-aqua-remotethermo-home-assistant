@@ -35,11 +35,11 @@ SCAN_INTERVAL = timedelta(seconds=2)
 
 _LOGGER = logging.getLogger(__name__)
 
-# Binary sensor types are defined like: Name, device class
+# Binary sensor types are defined like: Name, device class, icon
 BINARY_SENSORS = {
     PARAM_ONLINE: (BINARY_SENSOR_ONLINE, BinarySensorDeviceClass.CONNECTIVITY, None),
     PARAM_CHANGING_DATA: (BINARY_SENSOR_CHANGING_DATA, None, "mdi:cogs"),
-    PARAM_UPDATE: (BINARY_SENSOR_UPDATE, None, "mdi:package-down"),
+    PARAM_UPDATE: (BINARY_SENSOR_UPDATE, BinarySensorDeviceClass.UPDATE, "mdi:package-down"),
     PARAM_ON: (BINARY_SENSOR_ON, BinarySensorDeviceClass.POWER, "mdi:power"),
     PARAM_HEATING: (BINARY_SENSOR_HEATING, BinarySensorDeviceClass.HEAT, "mdi:fire"),
     PARAM_CLEANSE: (BINARY_SENSOR_CLEANSE, None, "mdi:bacteria-outline"),
