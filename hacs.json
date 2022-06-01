@@ -1,6 +1,4 @@
 {
     "name": "Ariston Aqua NET",
-    "domains": ["aquaariston", "sensor", "wather_heater", "switch", "binary_sensor"],
-    "render_readme": true,
-    "iot_class": ["Assumed State", "Cloud Polling", "Cloud Push"]
+    "render_readme": true
 }
