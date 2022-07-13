@@ -68,7 +68,7 @@ class AquaAristonHandler:
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     """
 
-    _VERSION = "1.0.48"
+    _VERSION = "1.0.49"
 
     _LOGGER = logging.getLogger(__name__)
     _LEVEL_CRITICAL = "CRITICAL"
@@ -922,7 +922,7 @@ class AquaAristonHandler:
         if plant_id:
             if self._default_gw:
                 # If GW is specified, it can differ from the default
-                url = self._url + "/PlantManagement/Index/" + plant_id
+                url = self._url + "/R2/PlantManagement/Index/" + plant_id
                 try:
                     resp = self._session.get(
                             url,
@@ -953,8 +953,8 @@ class AquaAristonHandler:
     def _login_session(self):
         """Login to fetch Ariston Plant ID and confirm login"""
         if not self._login and self._started:
-            url = self._url + '/Account/Login'
-            login_data = {"Email": self._user, "Password": self._password}
+            url = f"{self._url}/R2/Account/Login?returnUrl=%2FR2%2FHome"
+            login_data = {"email": self._user, "password": self._password, "rememberMe": False, "language": "English_Us"}
             try:
                 with self._token_lock:
                     self._token = requests.auth.HTTPDigestAuth(self._user, self._password)
