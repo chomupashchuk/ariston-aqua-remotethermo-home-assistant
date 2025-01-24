@@ -9,6 +9,7 @@ import threading
 import time
 from typing import Union
 import requests
+import sys
 
 
 class AquaAristonHandler:
@@ -212,7 +213,7 @@ class AquaAristonHandler:
     _HTTP_DELAY_MULTIPLY = 3
     _HTTP_TIMER_SET_LOCK = 20
     _HTTP_TIMER_SET_WAIT = 25
-    _HTTP_TIMEOUT_LOGIN = 5.0
+    _HTTP_TIMEOUT_LOGIN = 30.0
     _HTTP_TIMEOUT_GET_LONG = 15.0
     _HTTP_TIMEOUT_GET_MEDIUM = 10.0
     _HTTP_TIMEOUT_GET_SHORT = 7.0
@@ -315,7 +316,7 @@ class AquaAristonHandler:
                  password: str,
                  boiler_type: str = "",
                  sensors: list = None,
-                 retries: int = 5,
+                 retries: int = 100,
                  polling: Union[float, int] = 1.,
                  store_file: bool = False,
                  store_folder: str = "",
@@ -953,19 +954,20 @@ class AquaAristonHandler:
     def _login_session(self):
         """Login to fetch Ariston Plant ID and confirm login"""
         if not self._login and self._started:
-            url = self._url + '/Account/Login'
-            login_data = {"Email": self._user, "Password": self._password}
+            url = self._url + '/R2/Account/Login'
+#             login_data = {"Email": self._user, "Password": self._password}
+            login_data = {
+                           "email": self._user,
+                           "password": self._password,
+                           "rememberMe": True,
+                           "language": "English_Us"
+                         }
             try:
                 with self._token_lock:
                     self._token = requests.auth.HTTPDigestAuth(self._user, self._password)
-                resp = self._session.post(
-                    url,
-                    auth=self._token,
-                    timeout=self._HTTP_TIMEOUT_LOGIN,
-                    json=login_data,
-                    verify=True)
-            except requests.exceptions.RequestException:
-                self._LOGGER.warning('%s Authentication login error', self)
+                resp = self._session.post(url, auth=self._token, timeout=self._HTTP_TIMEOUT_LOGIN, json=login_data, verify=False)
+            except requests.exceptions.RequestException as ex:
+                self._LOGGER.warning(f"{self} Authentication login error {ex}", stack_info=True)
                 raise Exception("Login request exception")
             if resp.status_code != 200:
                 if self._store_file:
@@ -978,7 +980,8 @@ class AquaAristonHandler:
                 self._LOGGER.warning('%s Unexpected reply during login: %s', self, resp.status_code)
                 raise Exception("Login unexpected reply code")
 
-            plant_id = self._get_plant_id(resp)  
+            resp = self._session.get(self._url, auth=self._token, timeout=self._HTTP_TIMEOUT_LOGIN, verify=True)
+            plant_id = self._get_plant_id(resp)
 
             if plant_id:
                 with self._plant_id_lock:
@@ -1676,7 +1679,8 @@ class AquaAristonHandler:
             self._LOGGER.info(f"ariston action ok for {request_type}")
         except Exception as ex:
             self._error_detected(request_type)
-            self._LOGGER.warning(f"ariston action nok for {request_type}: {ex}")
+            exc_info = sys.exc_info()
+            self._LOGGER.warning(f"ariston action nok for {request_type}: {exc_info}")
             return
         if result_ok:
             self._no_error_detected(request_type)
