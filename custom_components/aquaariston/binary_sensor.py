@@ -1,4 +1,4 @@
-"""Suppoort for Ariston Aqua binary sensors."""
+"""Support for Ariston Aqua binary sensors."""
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
@@ -69,7 +69,7 @@ class AristonAquaBinarySensor(BinarySensorEntity):
     def __init__(self, name, device, sensor_type):
         """Initialize entity."""
         self._api = device.api.ariston_api
-        self._attr_extra_state_attributes = {}
+        self._attrs = {}
         self._device_class = BINARY_SENSORS[sensor_type][1]
         self._icon = BINARY_SENSORS[sensor_type][2]
         self._name = "{} {}".format(name, BINARY_SENSORS[sensor_type][0])
@@ -132,9 +132,9 @@ class AristonAquaBinarySensor(BinarySensorEntity):
             elif self._sensor_type == PARAM_CHANGING_DATA:
                 self._state = self._api.setting_data
             elif self._sensor_type == PARAM_UPDATE:
-                self._attr_extra_state_attributes["Installed"] = self._api.version
+                self._attrs["Installed"] = self._api.version
                 self._state = self._api.sensor_values[self._sensor_type][VALUE]
-                self._attr_extra_state_attributes["Online"] = self._api.sensor_values[PARAM_ONLINE_VERSION][
+                self._attrs["Online"] = self._api.sensor_values[PARAM_ONLINE_VERSION][
                     VALUE
                 ]
             else:
