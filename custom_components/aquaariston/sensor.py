@@ -5,18 +5,12 @@ from datetime import timedelta
 from homeassistant.const import CONF_NAME, CONF_SENSORS
 from homeassistant.helpers.entity import Entity
 from homeassistant.const import (
-    DEVICE_CLASS_BATTERY,
-    DEVICE_CLASS_CURRENT,
-    DEVICE_CLASS_ENERGY,
-    DEVICE_CLASS_HUMIDITY,
-    DEVICE_CLASS_ILLUMINANCE,
-    DEVICE_CLASS_POWER,
-    DEVICE_CLASS_POWER_FACTOR,
-    DEVICE_CLASS_PRESSURE,
-    DEVICE_CLASS_SIGNAL_STRENGTH,
-    DEVICE_CLASS_TEMPERATURE,
-    DEVICE_CLASS_TIMESTAMP,
-    DEVICE_CLASS_VOLTAGE,
+    UnitOfEnergy,
+)
+
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorStateClass,
 )
 
 from .const import (
@@ -74,17 +68,17 @@ _LOGGER = logging.getLogger(__name__)
 # Sensor types are defined like: Name, units, icon
 SENSORS = {
     PARAM_ERRORS: [SENSOR_ERRORS, None, "mdi:alert-outline"],
-    PARAM_CURRENT_TEMPERATURE: [SENSOR_CURRENT_TEMPERATURE, DEVICE_CLASS_TEMPERATURE, "mdi:thermometer"],
-    PARAM_REQUIRED_TEMPERATURE: [SENSOR_REQUIRED_TEMPERATURE, DEVICE_CLASS_TEMPERATURE, "mdi:thermometer"],
+    PARAM_CURRENT_TEMPERATURE: [SENSOR_CURRENT_TEMPERATURE, SensorDeviceClass.TEMPERATURE, "mdi:thermometer"],
+    PARAM_REQUIRED_TEMPERATURE: [SENSOR_REQUIRED_TEMPERATURE, SensorDeviceClass.TEMPERATURE, "mdi:thermometer"],
     PARAM_MODE: [SENSOR_MODE, None, "mdi:cursor-pointer"],
     PARAM_SHOWERS: [SENSOR_SHOWERS, None, "mdi:shower-head"],
     PARAM_TIMER: [SENSOR_TIMER, None, "mdi:timer"],
-    PARAM_CLEANSE_TEMPERATURE: [SENSOR_CLEANSE_TEMPERATURE, DEVICE_CLASS_TEMPERATURE, "mdi:thermometer"],
+    PARAM_CLEANSE_TEMPERATURE: [SENSOR_CLEANSE_TEMPERATURE, SensorDeviceClass.TEMPERATURE, "mdi:thermometer"],
     PARAM_TIME_PROGRAM: [SENSOR_TIME_PROGRAM, None, "mdi:calendar-month"],
-    PARAM_ENERGY_USE_DAY: [SENSOR_ENERGY_USE_DAY, DEVICE_CLASS_ENERGY, "mdi:cash"],
-    PARAM_ENERGY_USE_WEEK: [SENSOR_ENERGY_USE_WEEK, DEVICE_CLASS_ENERGY, "mdi:cash"],
-    PARAM_ENERGY_USE_MONTH: [SENSOR_ENERGY_USE_MONTH, DEVICE_CLASS_ENERGY, "mdi:cash"],
-    PARAM_ENERGY_USE_YEAR: [SENSOR_ENERGY_USE_YEAR, DEVICE_CLASS_ENERGY, "mdi:cash"],
+    PARAM_ENERGY_USE_DAY: [SENSOR_ENERGY_USE_DAY, SensorDeviceClass.ENERGY, "mdi:cash"],
+    PARAM_ENERGY_USE_WEEK: [SENSOR_ENERGY_USE_WEEK, SensorDeviceClass.ENERGY, "mdi:cash"],
+    PARAM_ENERGY_USE_MONTH: [SENSOR_ENERGY_USE_MONTH, SensorDeviceClass.ENERGY, "mdi:cash"],
+    PARAM_ENERGY_USE_YEAR: [SENSOR_ENERGY_USE_YEAR, SensorDeviceClass.ENERGY, "mdi:cash"],
     PARAM_REQUIRED_SHOWERS: [SENSOR_REQUIRED_SHOWERS, None, "mdi:shower-head"],
     PARAM_TEMPERATURE_MODE: [SENSOR_TEMPERATURE_MODE, None, "mdi:thermometer"],
 }

@@ -3,15 +3,13 @@ import logging
 from datetime import timedelta
 
 from homeassistant.components.water_heater import (
-    SUPPORT_OPERATION_MODE,
-    SUPPORT_TARGET_TEMPERATURE,
     WaterHeaterEntity,
+    WaterHeaterEntityFeature
 )
 from homeassistant.const import (
     ATTR_TEMPERATURE,
     CONF_NAME,
-    TEMP_CELSIUS,
-    TEMP_FAHRENHEIT,
+    UnitOfTemperature,
 )
 
 from .const import (
@@ -91,7 +89,7 @@ class AristonAquaWaterHeater(WaterHeaterEntity):
     @property
     def supported_features(self):
         """Return the list of supported features."""
-        return SUPPORT_TARGET_TEMPERATURE | SUPPORT_OPERATION_MODE
+        return WaterHeaterEntityFeature.OPERATION_MODE | WaterHeaterEntityFeature.TARGET_TEMPERATURE
 
     @property
     def current_temperature(self):
@@ -105,7 +103,7 @@ class AristonAquaWaterHeater(WaterHeaterEntity):
     @property
     def temperature_unit(self):
         """Return the unit of measurement."""
-        return TEMP_CELSIUS
+        return UnitOfTemperature.CELSIUS
 
     @property
     def min_temp(self):
